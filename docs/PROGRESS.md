@@ -505,3 +505,29 @@ Owner asked to start Phase 08. Scope: `prompts/08-AWS-TERRAFORM-PREFLIGHT.md`. *
 
 #### Next phase
 `prompts/09-AWS-DEPLOY.md`, only after `plan` has run cleanly and the owner approves each paid step.
+
+### 2026-11-20 — Phase 09 started: deployment still BLOCKED; client-side tooling prepared and tested locally
+Owner asked to continue with Phase 09 (`prompts/09-AWS-DEPLOY.md`). **Nothing was created on AWS; no `plan`, no `apply`, no image build.**
+
+#### Why the AWS part did not start
+- CloudShell re-checked in the owner's signed-in Console (read-only): `ap-southeast-1` shows "Unable to create the environment… System error"; `ap-southeast-2` still shows "Your account verification is in progress. This may take up to two days for new accounts." So there is still no command line with AWS credentials, and Terraform cannot plan.
+- The owner showed the RDS "Create database" page: it opens, with the banner "Free plan has access to limited features and resources… The free plan limits the features and resources that are available for RDS and Aurora databases" and, with Aurora selected, "Full configuration" greyed out (only "Express configuration" selectable). So resources can apparently be created from the Console while verification is pending, but **the Free plan restricts RDS options**; whether a plain `db.t4g.micro` PostgreSQL instance in our own subnet group is allowed is not known yet. Nothing was created from that page.
+- No GitHub repository URL yet, and no Docker here, so the two images cannot be built.
+
+#### Done in this step (no AWS needed)
+- `scripts/portal_client.py` (new, standard library only): shared HTTP client, sign-in for the `local` and `cognito` providers, upload by PUT or by S3 presigned form POST, `--resolve NAME=IP` support for testing a load balancer before its DNS record exists.
+- `scripts/smoke_test.py`: now works with either provider and either storage; for S3 it also checks that a body larger than the signed size is refused; new check that a storage URL without its signature is refused; sign-out revocation is only asserted for local accounts (Cognito ID tokens cannot be revoked by the API).
+- `scripts/seed_remote.py` (new): uploads the ten reference clips through the public API, waits for READY, compares each published duration with the manifest (±350 ms), shares the clips marked in the manifest with `--viewer`, and is repeatable (clips already in the owner's library are not uploaded again). This replaces `flask seed-db` for any deployment whose worker cannot read local seed files.
+- `tests/test_scripts.py`: 5 tests (multipart body parsed back with Werkzeug, provider selection with a scripted fake client, URL tampering, manifest verification).
+
+#### Commands and results (this machine, local mode, throwaway PostgreSQL cluster on 55432, real FFmpeg)
+- `RUN_DB_TESTS=1 pytest -q` -> **172 passed, 7 skipped** (same 7 as before).
+- Local API on port 8011 + local worker, then `scripts/seed_remote.py --viewer …` -> `SEED_RESULT {"clips": 10, "uploaded_now": 10, "already_present": 0, "failed": 0, "shared_with_viewer": 5, "total_seconds": 21.5}`; second run -> `uploaded_now: 0, already_present: 10`; wrong password -> `Sign-in failed`, exit 1.
+- `scripts/smoke_test.py` against the same server -> **23/23 PASS**, `storage: local`, processing 3.08 s for a 3-second clip.
+- These are local-mode runs on the development tree. They say nothing about AWS: the Cognito sign-in and S3 upload branches of the scripts were exercised only by the unit tests with a fake client.
+
+#### Still BLOCKED for Phase 09
+1. Command-line AWS credentials (CloudShell after verification, or another approved way) -> `terraform plan`.
+2. Confirmation that the Free plan permits the RDS, ALB, Fargate and Cognito resources in `infra/aws/`.
+3. GitHub repository URL -> push, then a workflow to build and push the two images.
+4. Owner approval of the first paid `apply`, with the plan output and the cost table in front of them.

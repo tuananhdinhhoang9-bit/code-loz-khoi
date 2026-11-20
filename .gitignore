@@ -34,3 +34,6 @@ credentials/
 *.pfx
 id_rsa
 id_ed25519
+
+# Cấu hình xem thử cục bộ của Claude Code
+.claude/

@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phương án C — Modern Media Management Platform</title>
+<!-- Prototype độc lập: dữ liệu mẫu tĩnh, không gọi API. Font tải từ Google chỉ để xem thử; bản thật sẽ tự lưu font trong app/static. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..700&display=swap">
+<style>
+:root {
+  --bg: #131416; --panel: #1b1d20; --raise: #24272b; --line: #2f3338; --text: #e9eaec; --muted: #9aa0a8;
+  --amber: #f0b23e; --ready: #5fc592; --wait: #93a4bd; --fail: #ea6d61;
+  --font: "Archivo", "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 var(--font); display: grid; grid-template-columns: 76px minmax(0, 1fr); min-height: 100vh; }
+h1, h2, h3, p { margin: 0; }
+button, input { font: inherit; color: inherit; }
+svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.wide { font-stretch: 116%; font-weight: 600; letter-spacing: -.005em; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Thanh bên dạng dải biểu tượng có nhãn */
+.rail { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 0; position: sticky; top: 0; height: 100vh; }
+.mark { width: 34px; height: 24px; border: 2px solid var(--text); border-radius: 4px; position: relative; margin-bottom: 16px; }
+.mark::after { content: ""; position: absolute; left: 12px; top: 5px; border: 5px solid transparent; border-left: 8px solid var(--amber); }
+.rail button { display: grid; justify-items: center; gap: 3px; width: 64px; padding: 8px 0 6px; border: 0; border-radius: 6px; background: none; color: var(--muted); font-size: 11px; cursor: pointer; }
+.rail button:hover { color: var(--text); background: var(--raise); }
+.rail button.on { color: var(--text); background: var(--raise); box-shadow: inset 2px 0 0 var(--amber); }
+.rail .me { margin-top: auto; width: 34px; height: 34px; border-radius: 50%; background: var(--raise); display: grid; place-items: center; font-weight: 600; font-size: 13px; }
+
+.stage { display: grid; grid-template-columns: minmax(0, 1fr); }
+.stage.with-inspector { grid-template-columns: minmax(0, 1fr) 340px; }
+.bar { display: flex; align-items: center; gap: 14px; padding: 16px 28px; position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); }
+.bar h1 { font-size: 20px; margin-right: auto; }
+.find { width: 250px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.btn { padding: 7px 16px; border: 1px solid var(--amber); border-radius: 6px; background: var(--amber); color: #1c1503; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.btn.line { background: none; border-color: var(--line); color: var(--text); font-weight: 500; }
+.btn.red { background: none; border-color: #5a312d; color: var(--fail); font-weight: 500; }
+.content { padding: 24px 28px 56px; }
+h2 { font-size: 15px; margin: 30px 0 12px; display: flex; align-items: baseline; gap: 10px; }
+h2:first-child { margin-top: 0; }
+h2 small { color: var(--muted); font-weight: 400; font-stretch: 100%; font-size: 13px; }
+
+/* Khung hình: dải màu thử, giống clip chuẩn của dự án */
+.frame { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 4px; overflow: hidden; border: 0; padding: 0; cursor: pointer;
+  background: linear-gradient(90deg, #b9bcc2 0 14.3%, #bdb45c 0 28.6%, #4fb3bd 0 42.9%, #58b06a 0 57.2%, #b05fb2 0 71.5%, #b9584f 0 85.8%, #4f63b3 0); }
+/* Video chưa xem được: phủ tối khung hình nhưng giữ nhãn trạng thái rõ nét. */
+.frame.off::before { content: ""; position: absolute; inset: 0; background: rgba(27, 29, 32, .82); }
+.frame .len { position: absolute; right: 6px; bottom: 6px; padding: 1px 6px; border-radius: 3px; background: rgba(0, 0, 0, .78); font-size: 12px; font-weight: 500; }
+.frame .tag { position: absolute; left: 6px; top: 6px; padding: 1px 8px; border-radius: 3px; background: rgba(0, 0, 0, .78); font-size: 12px; font-weight: 500; }
+.tag.run { color: var(--amber); } .tag.wait { color: var(--wait); } .tag.fail { color: var(--fail); }
+.frame .play { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; background: rgba(0, 0, 0, .35); transition: opacity .15s; }
+.frame:hover .play, .frame:focus-visible .play { opacity: 1; }
+.play i { border: 12px solid transparent; border-left: 20px solid #fff; margin-left: 12px; }
+
+/* Đường xử lý: bốn chặng, clip là khối trên đường ray, vạch vàng là vị trí đang xử lý */
+.rails { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px 16px; }
+.heads, .lane { display: grid; grid-template-columns: 150px repeat(4, minmax(0, 1fr)); gap: 0; }
+.heads span { color: var(--muted); font-size: 12px; padding: 0 8px 8px; border-left: 1px solid var(--line); }
+.heads span:first-child { border-left: 0; padding-left: 0; }
+.lane { align-items: center; height: 38px; border-top: 1px solid var(--line); }
+.lane b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
+.lane .cell { height: 100%; border-left: 1px solid var(--line); position: relative; }
+.clip { position: absolute; top: 9px; bottom: 9px; left: 0; border-radius: 3px; }
+.clip.done { background: #3a4048; right: 0; } .clip.ready { background: var(--ready); right: 0; opacity: .85; }
+.clip.wait { background: repeating-linear-gradient(135deg, #3a4048 0 6px, #2b3036 6px 12px); right: 0; }
+.clip.run { background: var(--amber); }
+.clip.run::after { content: ""; position: absolute; right: -1px; top: -9px; bottom: -9px; width: 2px; background: var(--amber); }
+.clip.fail { background: var(--fail); width: 38%; }
+.lane .why { position: absolute; left: calc(38% + 10px); top: 9px; color: var(--fail); font-size: 12px; white-space: nowrap; }
+.strip { display: grid; grid-auto-flow: column; grid-auto-columns: 216px; gap: 14px; overflow-x: auto; padding-bottom: 6px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 20px 16px; }
+.item p { margin-top: 8px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item small { color: var(--muted); }
+.item.sel .frame { outline: 2px solid var(--amber); outline-offset: 2px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+.tabs button { padding: 0 0 9px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); cursor: pointer; }
+.tabs button.on { color: var(--text); border-bottom-color: var(--amber); font-weight: 500; }
+
+/* Bảng thông tin bên phải */
+.inspector { background: var(--panel); border-left: 1px solid var(--line); padding: 20px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.inspector h3 { font-size: 17px; margin: 14px 0 2px; }
+.inspector dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 16px; margin: 16px 0; font-size: 13px; }
+.inspector dt { color: var(--muted); } .inspector dd { margin: 0; text-align: right; }
+.inspector hr { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
+label { display: block; font-size: 13px; font-weight: 500; margin: 0 0 6px; }
+.field { width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.hint { color: var(--muted); font-size: 13px; margin-top: 10px; }
+
+/* Tải lên */
+.drop { display: grid; justify-items: center; gap: 6px; padding: 44px 20px; border: 1.5px dashed #4a5058; border-radius: 6px; background: var(--panel); text-align: center; color: var(--muted); }
+.drop strong { color: var(--text); font-size: 16px; }
+.form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; margin: 18px 0 0; max-width: 720px; }
+
+@media (max-width: 1100px) { .stage.with-inspector { grid-template-columns: 1fr; } .inspector { position: static; height: auto; border-left: 0; border-top: 1px solid var(--line); } }
+@media (max-width: 760px) {
+  body { display: block; padding-bottom: 64px; }
+  .rail { position: fixed; z-index: 5; inset: auto 0 0 0; height: 60px; flex-direction: row; justify-content: space-around; padding: 0 6px; border-right: 0; border-top: 1px solid var(--line); }
+  .mark, .rail .me, .rail .extra { display: none; }
+  .rail button.on { box-shadow: inset 0 2px 0 var(--amber); }
+  .bar, .content { padding-left: 16px; padding-right: 16px; } .find { display: none; }
+  .heads, .lane { grid-template-columns: 96px repeat(4, minmax(0, 1fr)); } .heads span { font-size: 11px; padding: 0 4px 8px; } .lane .why { display: none; }
+  .grid { grid-template-columns: 1fr 1fr; gap: 16px 12px; } .form { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<svg hidden><defs>
+  <symbol id="i-home" viewBox="0 0 20 20"><path d="M3 9l7-6 7 6v8H3z"/><path d="M8 17v-5h4v5"/></symbol>
+  <symbol id="i-film" viewBox="0 0 20 20"><rect x="2.500" y="4" width="15" height="12" rx="1.500"/><path d="M6 4v12M14 4v12M2.500 8H6M2.500 12H6M14 8h3.500M14 12h3.500"/></symbol>
+  <symbol id="i-up" viewBox="0 0 20 20"><path d="M10 13V4M6.500 7.500L10 4l3.500 3.500M4 16h12"/></symbol>
+  <symbol id="i-users" viewBox="0 0 20 20"><circle cx="7.500" cy="7" r="2.800"/><path d="M2.500 16c.600-2.800 2.500-4.300 5-4.300s4.400 1.500 5 4.300M13.500 4.500a2.700 2.700 0 010 5.200M15 12.200c1.400.600 2.200 1.900 2.500 3.800"/></symbol>
+  <symbol id="i-help" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="M8.200 8a1.900 1.900 0 113.600.800c-.600.600-1.800.900-1.800 2.100M10 13.800v.2"/></symbol>
+</defs></svg>
+
+<nav class="rail" aria-label="Điều hướng">
+  <div class="mark" aria-hidden="true"></div>
+  <button class="on" data-go="home"><svg><use href="#i-home"/></svg>Tổng quan</button>
+  <button data-go="library"><svg><use href="#i-film"/></svg>Thư viện</button>
+  <button data-go="upload"><svg><use href="#i-up"/></svg>Tải lên</button>
+  <button class="extra"><svg><use href="#i-users"/></svg>Người dùng</button>
+  <button class="extra"><svg><use href="#i-help"/></svg>Hướng dẫn</button>
+  <div class="me" title="khoi@example.com, quản trị viên">K</div>
+</nav>
+
+<div class="stage" id="stage">
+  <div>
+    <header class="bar">
+      <h1 class="wide" id="title">Tổng quan</h1>
+      <input class="find" placeholder="Tìm theo tên video" aria-label="Tìm video">
+      <button class="btn" data-go="upload">Tải video lên</button>
+    </header>
+
+    <!-- TỔNG QUAN -->
+    <section class="content" data-view="home">
+      <h2 class="wide">Đường xử lý <small>mỗi lúc một video, tự cập nhật</small></h2>
+      <div class="rails">
+        <div class="heads"><span></span><span>Gửi file</span><span>Xếp hàng</span><span>Chuyển mã</span><span>Sẵn sàng</span></div>
+        <div class="lane"><b>Demo luồng tải lên</b><div class="cell"><i class="clip done"></i></div><div class="cell"><i class="clip done"></i></div><div class="cell"><i class="clip run" style="width:64%"></i></div><div class="cell"></div></div>
+        <div class="lane"><b>Buổi họp nhóm tuần 3</b><div class="cell"><i class="clip done"></i></div><div class="cell"><i class="clip wait"></i></div><div class="cell"></div><div class="cell"></div></div>
+        <div class="lane"><b>Giới thiệu nhóm</b><div class="cell"><i class="clip done"></i></div><div class="cell"><i class="clip done"></i></div><div class="cell"><i class="clip done"></i></div><div class="cell"><i class="clip ready"></i></div></div>
+        <div class="lane"><b>Ghi hình màn hình dài</b><div class="cell"><i class="clip done"></i></div><div class="cell"><i class="clip done"></i></div><div class="cell"><i class="clip fail"></i><span class="why">Dài hơn 30 giây</span></div><div class="cell"></div></div>
+      </div>
+
+      <h2 class="wide">Mới sẵn sàng <small>8 video phát được</small></h2>
+      <div class="strip">
+        <div class="item"><button class="frame" data-go="library"><span class="len num">0:28</span><span class="play"><i></i></span></button><p>Giới thiệu nhóm</p><small>Của bạn, 20/11</small></div>
+        <div class="item"><button class="frame" data-go="library"><span class="len num">0:30</span><span class="play"><i></i></span></button><p>Kiến trúc hệ thống</p><small>Của bạn, 20/11</small></div>
+        <div class="item"><button class="frame" data-go="library"><span class="len num">0:21</span><span class="play"><i></i></span></button><p>Báo cáo giữa kỳ</p><small>Chia sẻ bởi linh@example.com</small></div>
+        <div class="item"><button class="frame" data-go="library"><span class="len num">0:03</span><span class="play"><i></i></span></button><p>Clip thử nghiệm 07</p><small>Của bạn, 19/11</small></div>
+        <div class="item"><button class="frame" data-go="library"><span class="len num">0:12</span><span class="play"><i></i></span></button><p>Thử nghiệm phân quyền</p><small>Chia sẻ bởi an@example.com</small></div>
+      </div>
+    </section>
+
+    <!-- THƯ VIỆN -->
+    <section class="content" data-view="library" hidden>
+      <div class="tabs"><button class="on">Tất cả 11</button><button>Của tôi 9</button><button>Được chia sẻ 2</button><button>Đang xử lý 2</button><button>Thất bại 1</button></div>
+      <div class="grid">
+        <div class="item sel"><button class="frame"><span class="len num">0:28</span><span class="play"><i></i></span></button><p>Giới thiệu nhóm</p><small>Của bạn, 20/11</small></div>
+        <div class="item"><button class="frame off"><span class="tag run num">Chuyển mã 64%</span></button><p>Demo luồng tải lên</p><small>Của bạn, 20/11</small></div>
+        <div class="item"><button class="frame off"><span class="tag wait">Xếp hàng</span></button><p>Buổi họp nhóm tuần 3</p><small>Của bạn, 20/11</small></div>
+        <div class="item"><button class="frame"><span class="len num">0:30</span><span class="play"><i></i></span></button><p>Kiến trúc hệ thống</p><small>Của bạn, 20/11</small></div>
+        <div class="item"><button class="frame"><span class="len num">0:21</span><span class="play"><i></i></span></button><p>Báo cáo giữa kỳ</p><small>Chia sẻ bởi linh@example.com</small></div>
+        <div class="item"><button class="frame off"><span class="tag fail">Thất bại</span></button><p>Ghi hình màn hình dài</p><small>Của bạn, 19/11</small></div>
+        <div class="item"><button class="frame"><span class="len num">0:03</span><span class="play"><i></i></span></button><p>Clip thử nghiệm 07</p><small>Của bạn, 19/11</small></div>
+        <div class="item"><button class="frame"><span class="len num">0:12</span><span class="play"><i></i></span></button><p>Thử nghiệm phân quyền</p><small>Chia sẻ bởi an@example.com</small></div>
+      </div>
+    </section>
+
+    <!-- TẢI LÊN -->
+    <section class="content" data-view="upload" hidden>
+      <div class="drop"><svg><use href="#i-up"/></svg><strong>Kéo video vào đây</strong><span>hoặc bấm để chọn file. MP4, WebM hoặc MOV, tối đa 50 MB, dài không quá 30 giây.</span></div>
+      <div class="form"><div><label for="t">Tên video</label><input class="field" id="t" value="Demo luồng tải lên"></div><button class="btn">Tải video lên</button></div>
+
+      <h2 class="wide">Đang tải lên <small>demo-luong-tai-len.mp4, 24,1 MB</small></h2>
+      <div class="rails">
+        <div class="heads"><span></span><span>Gửi file</span><span>Xếp hàng</span><span>Chuyển mã</span><span>Sẵn sàng</span></div>
+        <div class="lane"><b>Demo luồng tải lên</b><div class="cell"><i class="clip done"></i></div><div class="cell"><i class="clip done"></i></div><div class="cell"><i class="clip run" style="width:64%"></i></div><div class="cell"></div></div>
+      </div>
+      <p class="hint">Đang chuyển mã, 64%. Khi xong, video mở được ngay tại đây và trong Thư viện.</p>
+    </section>
+  </div>
+
+  <aside class="inspector" id="inspector" hidden>
+    <button class="frame"><span class="len num">0:28</span><span class="play" style="opacity:1;background:none"><i></i></span></button>
+    <h3 class="wide">Giới thiệu nhóm</h3>
+    <p class="hint" style="margin-top:0">Của bạn</p>
+    <div class="row"><button class="btn">Xem video</button><button class="btn red">Xoá</button></div>
+    <dl><dt>Trạng thái</dt><dd style="color:var(--ready)">Sẵn sàng</dd><dt>Thời lượng</dt><dd class="num">0:28</dd><dt>Đầu ra</dt><dd>MP4 H.264, 854×480</dd><dt>File gốc</dt><dd class="num">19,9 MB</dd><dt>Tải lên</dt><dd class="num">20/11/2026, 14:02</dd></dl>
+    <hr>
+    <label for="v">Chia sẻ với email</label>
+    <input class="field" id="v" placeholder="nguoixem@example.com">
+    <div class="row"><button class="btn line">Cấp quyền xem</button><button class="btn line">Thu hồi quyền</button></div>
+    <p class="hint">Người xem phải có tài khoản. Thu hồi có hiệu lực với lượt xem mới.</p>
+  </aside>
+</div>
+<script>
+const titles = { home: "Tổng quan", library: "Thư viện", upload: "Tải video lên" };
+function show(view) {
+  document.querySelectorAll("[data-view]").forEach((s) => { s.hidden = s.dataset.view !== view; });
+  document.querySelectorAll(".rail [data-go]").forEach((b) => b.classList.toggle("on", b.dataset.go === view));
+  document.getElementById("title").textContent = titles[view];
+  document.getElementById("inspector").hidden = view !== "library";
+  document.getElementById("stage").classList.toggle("with-inspector", view === "library");
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => show(b.dataset.go)));
+document.querySelectorAll(".grid .item").forEach((item) => item.addEventListener("click", () => { document.querySelector(".item.sel")?.classList.remove("sel"); item.classList.add("sel"); }));
+function fromHash() { if (titles[location.hash.slice(1)]) show(location.hash.slice(1)); }
+window.addEventListener("hashchange", fromHash);
+fromHash();
+</script>
+</body>
+</html>

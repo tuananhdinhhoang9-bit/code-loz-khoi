@@ -1,0 +1,507 @@
+# Progress checkpoint
+
+**Status:** Deployment target changed on 2026-11-17 from GCP to a **Windows Server VPS** (owner decision, ADR-015). Phase 07 (VPS preparation) is implemented and tested on a Windows 11 development machine with real PostgreSQL 16.4 and FFmpeg 9.0.1: **126 tests passed, 6 skipped** (Docker-only tests; Docker is excluded by decision). **Nothing has been installed on the VPS**; service installation, NTFS ACLs, firewall, public HTTPS and off-VPS backup are UNVERIFIED and belong to Phase 08. The earlier GCP Terraform (plan only) is archived.
+
+## Current phase
+- Completed: prompts/01 through prompts/06 (local), prompts/07-VPS-WINDOWS-INFRA (preparation only, local commit). Next: prompts/08-VPS-DEPLOY, not started. No cloud or VPS changes made.
+
+## Completed
+- [x] Starter instructions, assignment requirement checklist and phase prompts prepared.
+- [x] Phase 00: original PDF read, starter pack audited, local environment and Git remote checked, implementation plan recorded.
+- [x] Phase 01 minimal local Flask/Jinja skeleton (future application phases not implemented).
+- [x] Phase 01/02 tests: 20 passed with RUN_DB_TESTS=1; real HTTP home/health checks passed.
+- [x] Phase 01 real PostgreSQL/Compose acceptance: 6 tests passed; actual home and DB health HTTP 200.
+- [x] Phase 02: six PostgreSQL tables, constraints, repeatable media/DB seed and isolated-schema tests.
+- [x] Phase 03: server-side Firebase SDK and Owner/Viewer API authorization; offline signature tests passed.
+- [x] Phase 04: private local upload/list/status/permissions/signed output contract and responsive Jinja portal.
+- [x] Phase 05: bounded real FFmpeg Docker worker, MP4/JPG/duration and invalid-media checks.
+- [x] Phase 06: durable local outbox/queue, lease/attempt fencing, bounded retry/reconcile, real container kill recovery; all 10 existing seed jobs processed locally.
+- [x] (archived) GCP Phase 07: Terraform fmt/init/validate/plan PASS, never applied.
+- [x] Phase 07 (Windows VPS preparation): code, scripts, docs; real tests on a Windows dev machine. VPS itself untouched.
+- [ ] Phase 08: deploy to the VPS (not started).
+- [ ] Live Firebase account/project verification (BLOCKED: configuration not supplied).
+- [ ] Cloud configuration/deployment.
+- [ ] Failure/monitoring/CI evidence.
+
+## Blockers
+- Phase 05 worker/container blocker resolved by actual container tests below. Firebase/GCS production integration and cloud failure drill still unverified.
+- Phases 07–12 cloud acceptance BLOCKED pending GCP project, billing/budget approval, IAM, region/tier/quota and tooling verification. No cloud access checks were run in Phase 00.
+- Phase 07 plan blocker resolved on 2026-11-17 (see last Phase 07 entry). Phase 08 remains BLOCKED: needs explicit apply approval, a confirmed deployment project with billing and budget, real images and Firebase configuration.
+- Current working copy is a ZIP snapshot without `.git`; commit/push BLOCKED until it is reattached to the repository (commands in the Phase 07 entry).
+- GitHub repository is connected and push verified; it is no longer a blocker. CLI login remains separate from working Git credentials.
+
+## Handoff template — Codex updates after EACH phase
+
+### YYYY-MM-DD — Phase XX
+- Scope completed:
+- Files changed:
+- Test command/result (PASS/FAIL/BLOCKED):
+- Cloud operations done? Any cost impact?:
+- Git commit hash and push verification (or reason blocked):
+- Open issues with exact reproduction:
+- Next phase:
+
+Don't delete older checkpoint history. Keep summary compact and factual.
+
+### 2026-11-11 — Skill installation (preparation only)
+- Scope completed: installed the five core skills from docs/SKILLS_INSTALL.md into .agents/skills; retained all three existing local skills. Monitoring and optional skills deferred as documented.
+- Sources pinned: google/skills@64d010629e61e4a7d59fc21e042362f370b5888b (cloud-run-basics, cloud-sql-basics, google-cloud-storage-basics); openai/skills@49f948faa9258a0c61caceaf225e179651397431 (security-best-practices); anthropics/skills@2c5958ecac7cee2b583967a2c4981d0f4a75c579 (frontend-design).
+- Commands/results: official skill-installer install-skill-from-github.py with --repo, --ref, --path and --dest .agents/skills: PASS for all five. Verified SKILL.md files after installation. Application tests not applicable.
+- Cloud operations/cost: none.
+- Git commit/push: BLOCKED; this folder is not a Git repository. Next command after the team repository is ready: git init (if this folder is intended to become the repository).
+- Next phase: 00-START.md; newly installed skills become available on the next turn.
+
+
+### 2026-11-11 — GitHub connection and per-task delivery
+- Scope: connect this folder to https://github.com/binzvn/DTDM.git (existing private repository, main); verified stored Git account binzvn and repository admin/push permission through GitHub API.
+- Files: AGENTS.md now requires appropriate checks, progress update, scoped commit and immediate push after each completed task/step; .gitignore also excludes common private key files.
+- Validation: documentation/skill files only; project-owned staged whitespace checks PASS; sensitive-file/content pattern scan PASS; ignore rules for .env, secrets, credentials and private keys PASS. Full whitespace check reports pre-existing formatting in vendored upstream skills; retained upstream files unchanged. No application exists yet, so application tests are not applicable.
+- Cloud operations/cost: none.
+- Git: initial commit and remote SHA verification performed as part of this setup; see Git history for commit identity. No existing remote commits were present at initial inspection.
+- Next phase: prompts/00-START.md.
+
+- Verified delivery: initial commit ddc89a62f4b5561cd45cb37f46a731b65e498576 pushed to origin/main; git ls-remote confirmed identical SHA and working tree was clean.
+- Tooling limitation: Git 2.45.2.windows.1 available; GitHub CLI initially absent. Official winget/portable downloads did not finish and were stopped. CLI installation BLOCKED by incomplete download; retry: `winget install --id GitHub.cli --exact --source winget --accept-package-agreements --accept-source-agreements --silent`, then `gh auth login --hostname github.com --git-protocol https --web` and `gh auth status`. Git credential manager account binzvn and GitHub API permissions were verified without exposing tokens; Git push works independently of gh.
+
+
+### 2026-11-11 — Phase 00: read, audit and prepare
+
+#### Completed scope and requirement audit
+- Read AGENTS.md, REQUIREMENTS.md, PHASES.md, 00-START.md and all four original PDF pages, including visual inspection of both figures. Audited the linked architecture/data/API/security/reliability/test/deployment/cost/deliverable documents. PDF SHA256: dda5df6976fe78ed6f60073090a9d90df96e63e4f3fee5bc13a61ed52a25113c.
+- Core scope matches the PDF: Owner/authorized Viewer; 10 legal/synthetic clips <=30s and <=50 MB; repeatable seed; four domain entities; MP4/thumbnail/duration; private upload/playback; container conversion; source-version/profile identity.
+- Reliability and final acceptance remain mandatory: transactional outbox, deduplication/stable operation keys, ack after durable progress, bounded retries/failed-job recovery, actual interrupted-cloud-transcode drill, dashboard/actionable alert, direct forbidden API tests, IaC recreation, CI/CD rollback, measured load results and workload cost estimate.
+- GCP, Flask/Jinja/vanilla JS, PostgreSQL, FFmpeg, Terraform and one H.264/AAC 480p/JPG profile are project choices, not additional technologies required by the PDF. Keep the fixed stack; no React/Celery/Redis/Kubernetes/CDN/payment features or multiple profiles.
+- PDF page 1 explicitly says “synthetic identities and simulated financial actions”; there is no financial workflow elsewhere. NEEDS INSTRUCTOR CLARIFICATION: ask whether this is template text. Keep synthetic identities, do not implement payments or silently declare this phrase satisfied. It does not block local bootstrap.
+- Clarified ARCHITECTURE.md wording “regional instance (single zone)”: intended demo setup remains one zonal instance in a chosen region, not regional HA. This is wording clarification, not a design change; DECISIONS.md unchanged. Region/tier/private network and cost remain unverified until Phase 07.
+- PDF suggests calendar milestones; project phases 00–12 are acceptance gates, not a claim that anything is deployed. Cloud prerequisites must be verified before cloud implementation; local work needs no GCP credentials.
+
+#### Environment observed (read-only checks)
+
+| Item | Actual result | Consequence |
+| --- | --- | --- |
+| Python | 3.12.4; `python -m pip --version`: pip 25.1.1 | Usable for Phase 01; use python -m pip, standalone pip is absent from PATH |
+| Python packages | Global Flask/SQLAlchemy present; pytest/psycopg absent | Global packages are not project readiness; create .venv and install reviewed requirements in Phase 01 |
+| Docker / Compose | docker not found in PATH or checked default Docker Desktop path | BLOCKED: cannot test DB/container flow; no daemon/Compose check was possible |
+| FFmpeg / ffprobe | Not found in PATH | Real transcoding untested; Phase 05 should use the required container, host installation is optional |
+| Terraform / gcloud | Not found in PATH | Deferred to Phase 07; no GCP commands, login, plan or resource creation performed |
+| PostgreSQL client | psql not found in PATH | Host client optional; use Compose database in Phase 01 |
+| Node / npm | v24.14.1 / 11.11.0 via npm.cmd | Available; not required for Flask/Jinja application runtime |
+| Git | 2.45.2.windows.1; main tracks origin/main | Working tree clean before task; remote SHA matched 871722206c3bccd14abc75f8886b86dc324dd8b7 |
+| GitHub CLI | 2.103.3 exists at C:/Program Files/GitHub CLI/gh.exe, absent from current PATH; auth status says not logged in | Earlier installer eventually completed; previous download blocker superseded. Git credential manager lists binzvn and Git remote works independently |
+| Local configuration | No .venv or .env yet; no app/tests/infra/workflow code | Expected starter state; create only Phase 01 files next |
+| Skills | Eight directories have SKILL.md (five external and three local) | Correct phase-specific skills available; no additional installation needed now |
+| PDF tools | Bundled pypdf extracted 4 pages; Poppler rendered all 4 | PASS; pypdf emitted repair warnings, text and rendered pages were readable |
+
+#### Implementation plan (one prompt/phase per future request)
+
+| Phase | Work and gate before moving on |
+| --- | --- |
+| 01 | Minimal Flask/Jinja, isolated .venv, real gitignored .env, Compose PostgreSQL, home/DB health checks and passing local tests |
+| 02 | Four domain tables plus permissions/outbox; uniqueness constraints; deterministic, repeatable seed and fixtures (real generated media verified by Phase 05) |
+| 03 | Owner/Viewer authentication and server-side permissions; direct valid/missing/expired/forbidden API tests |
+| 04 | Local/mock private storage, upload validation, listing, scoped playback/thumbnail contracts and permission tests |
+| 05 | Bounded FFmpeg worker container; real valid clip produces verified MP4/JPG/duration; invalid/oversize/overlong tests |
+| 06 | Local transactional outbox, fake transport, dispatch/lease/reconcile, idempotency and bounded retry; duplicate/crash tests |
+| 07 | Verify GCP account/project/budget/region/tier/quota/IAM/private networking; Terraform fmt/validate and authorized plan; no apply |
+| 08 | Only after explicit cloud approval: GCP integration, actual HTTPS/private storage/DB/PubSub/Job and ten-clip end-to-end run |
+| 09 | Explicitly authorized real job termination, bounded recovery and one published result; save evidence |
+| 10 | Measured dashboard, actionable alert tied to drill, dated workload cost estimate; install monitoring skill when needed |
+| 11 | GitHub Actions test/build/deploy via workload federation and actual rollback evidence; no permanent service-account key |
+| 12 | Full API/security/playback/load verification, actual architecture diagram, report/demo/cleanup instructions; deletion only with approval |
+
+After each completed task/step: appropriate checks -> update this file -> inspect staged files/secrets -> scoped commit -> push -> compare local and remote SHA. Do not skip blocked gates or claim cloud evidence from local mocks.
+
+#### First commands / unblock instructions (not executed here)
+- To install the missing local container tool when starting Phase 01: `winget install --id Docker.DockerDesktop --exact`. Start Docker Desktop and satisfy its WSL2/virtualization prerequisites if requested; then verify `docker --version`, `docker compose version`, `docker info`. Installation may require a terminal restart/reboot; no success assumed.
+- Phase 01 isolated Python setup: `python -m venv .venv`.
+- Only after Phase 01 creates requirements and Compose files: `.\.venv\Scripts\python.exe -m pip install -r requirements.txt`, `docker compose up -d db`, `.\.venv\Scripts\python.exe -m pytest -q`, `.\.venv\Scripts\python.exe -m flask --app app.main run --debug`. These are planned commands, not results.
+- Optional CLI verification after a fresh terminal: `gh --version`, `gh auth status`; if still absent from PATH, use `& 'C:/Program Files/GitHub CLI/gh.exe' auth status`. Optional separate CLI login: `& 'C:/Program Files/GitHub CLI/gh.exe' auth login --hostname github.com --git-protocol https --web`. Git push does not depend on it.
+- First cloud action is the future user request to execute `prompts/07-TERRAFORM-PREFLIGHT.md`, after local gates pass and the project ID, spending policy and access are supplied. Do not invent runnable gcloud/Terraform resource commands before that preflight.
+
+#### Validation and handoff
+- PASS: four PDF pages extracted/rendered/read; phase prompts 00–12 present; required outputs/reliability/security/final evidence mapped above; repository/upstream checked; eight skill entrypoints present.
+- PASS: no tracked .env/secrets/credentials (`git ls-files .env '.env.*' secrets credentials` returned empty); ignore rules checked again before commit.
+- Documentation validation: `git diff --check`, inspect scoped diff and staged paths before commit. No application tests run: there is no application/test suite yet. Docker/DB/worker/cloud acceptance is BLOCKED or deferred as identified above, not PASS.
+- Files changed: docs/PROGRESS.md and one wording clarification in docs/ARCHITECTURE.md. No application, dependencies, CI or infrastructure files created; no cloud operations or bills generated by this phase.
+- Git delivery: scoped Phase 00 commit to existing main; verify push using `git rev-parse HEAD` and `git ls-remote origin refs/heads/main` (commit identity is available in Git history).
+- Remaining input: instructor clarification on financial wording; Docker readiness for Phase 01; project/budget/access and demo identities before cloud integration. Team calendar, region/tier and quota have not been verified.
+- Next phase: prompts/01-LOCAL-BOOTSTRAP.md. Do not start it in this request.
+
+
+### 2026-11-11 — Phase 01: local bootstrap
+- Scope implemented: app/main.py application factory, Jinja home, GET /health with real SQLAlchemy SELECT 1, request IDs and no-store responses. Returns 503 for missing/unreachable DB and avoids logging connection exceptions/credentials. No auth/upload/schema/seed/worker/cloud behavior implemented.
+- Local PostgreSQL: compose.yaml uses postgres:16-bookworm, loopback-only published port, persistent named volume, healthcheck, 1 CPU / 512 MB limits and mandatory POSTGRES_PASSWORD. No password committed or generated. Real gitignored .env created with empty local placeholders; user must fill password privately. No .env.example runtime fallback.
+- Dependencies: requirements.txt pins Flask 3.1.3, SQLAlchemy 2.1.8, psycopg[binary] 3.3.8 and python-dotenv 1.2.4; requirements-dev.txt adds pytest 9.2.0. README gives PowerShell setup, real DB test and safe stop commands. pytest.ini registers integration tests.
+- Tests added: Jinja page, missing DB -> 503, successful SELECT 1 and connection cleanup via mock, failed connection without exception leak, real psycopg connection failure -> 503, opt-in real PostgreSQL health integration test.
+- Commands/results: `python -m venv .venv` initially failed ensurepip under sandbox; retried with elevated execution successfully. Dependency install completed in .venv. An early check before install completion reported missing modules; rerun after successful install passed.
+- PASS: `.\.venv\Scripts\python.exe -m pytest -q` -> 5 passed, 1 skipped in 4.03s. Initial sandbox cache warning disappeared on rerun outside restricted execution. Skip is explicitly the real PostgreSQL integration test, not a passed DB test.
+- PASS: `.\.venv\Scripts\python.exe -m pip check` -> no broken requirements; Flask route discovery -> / and /health present.
+- PASS: temporary Werkzeug server on loopback with actual urllib HTTP requests: GET / -> 200 and rendered Jinja text/link; GET /health with unset DB password -> 503, sanitized JSON and matching request-ID header. Server stopped after checks. This does not prove a successful DB connection.
+- BLOCKED: `docker compose config --quiet`, `docker compose up -d --wait db` and real DB-success/health tests could not run: docker executable/Desktop absent and `wsl --status` says WSL is not installed. Compose file inspected but not validated by the Docker CLI. Do not mark Phase 01 fully accepted or proceed to Phase 02 yet.
+- Exact unblock: install Docker Desktop/WSL2, complete any OS-required restart and start the Linux engine; privately fill POSTGRES_PASSWORD in .env; run `docker info`, `docker compose version`, `docker compose config --quiet`, `docker compose up -d --wait db`, then `$env:RUN_DB_TESTS='1'; .\.venv\Scripts\python.exe -m pytest -q; Remove-Item Env:RUN_DB_TESTS`. Verify /health -> 200 against that DB. No automatic system-level WSL installation/reboot or data deletion performed.
+- Files: app/__init__.py, app/main.py, app/templates/index.html, compose.yaml, requirements.txt, requirements-dev.txt, pytest.ini, tests/test_app.py, tests/test_database.py, README.md, .gitignore (pytest temporary cache directories), docs/PROGRESS.md; local .env and .venv remain ignored. Existing architecture unchanged; no DECISIONS update needed.
+- PASS: Compose YAML parsed with local YAML library and loopback port assertion; this static check does not replace Docker config/engine validation.
+- Validation before commit: whitespace check, inspect staged scope and sensitive-file/token/key patterns, verify .env/.venv excluded. No fabricated cloud URLs/results or DB-success claims.
+- Cloud operations/cost: none. Git: scoped Phase 01 commit/push to existing main, remote SHA compared after push; commit ID available in Git history.
+- Next action: unblock and finish Phase 01 real DB acceptance; only then request prompts/02-DATABASE-SEED.md.
+
+
+### 2026-11-11 — Requested local tool installation
+- Requested scope only: WSL, GitHub CLI, Node.js LTS and FFmpeg Essentials; no Docker installation, app changes, cloud or Phase 02 work.
+- GitHub CLI: winget GitHub.cli already at latest available 2.103.3; executable version verified. Existing Git credentials unaffected; CLI login not changed.
+- Node.js: winget OpenJS.NodeJS.LTS upgraded 24.14.1 -> 26.13.0; node/npm executable checks performed after install.
+- WSL: winget Microsoft.WSL 2.7.14 installed successfully with Administrator authorization. WSL version command confirms 2.7.14.0 and kernel 6.18.33.2-2. Enabled Microsoft-Windows-Subsystem-Linux and VirtualMachinePlatform; both DISM operations succeeded with exit 3010 (reboot required). No automatic reboot performed. Linux runtime/distribution execution remains BLOCKED pending reboot; no Linux user account was configured. Next command after reboot: `wsl --status`; if a Linux distribution is desired and none is present, run `wsl --install -d Ubuntu` and complete its user setup. Docker Desktop is still missing.
+- FFmpeg: winget Gyan.FFmpeg.Essentials 9.0.1 installed successfully. Slow download and unsuccessful mixed-source/range checksum attempts were discarded without execution. Final archive downloaded in full from the exact GitHub URL in winget manifest; SHA256 matched FEC81AE03971D9DD4BE3EBE02E263BD2EC1D789483F931BDBA5F5715E65DA2E9; winget independently verified installer hash before extraction/install.
+- PASS: ffmpeg and ffprobe both report 9.0.1; real smoke run generated a one-second synthetic MP4, ffprobe confirmed h264 and duration 1.000000. This is host-tool verification, not Phase 05 worker/container acceptance. Initial alias-path check used an absent Links location; retried successfully with the actual winget package bin path.
+- Open a new terminal after installation for updated PATH; reboot Windows to activate WSL features. Follow with `gh --version`, `node --version`, `npm.cmd --version`, `ffmpeg -version`, `ffprobe -version`, `wsl --version`, `wsl --status`.
+- Files changed: docs/PROGRESS.md only. Downloads/logs/synthetic smoke media reside in ignored .tmp/tools-install. No secrets/.env values logged or committed. Existing application tests were not rerun because application/dependency files were unchanged; actual tool smoke checks and documentation whitespace check are appropriate here.
+- Git delivery: commit progress update, push main and compare remote/local SHA. Next project action remains finish Phase 01 Docker/PostgreSQL verification after reboot and Docker setup.
+
+
+### 2026-11-11 — Phase 01 acceptance completed
+- Resumed after interrupted image pull. Docker Desktop 4.99.0 / engine 29.9.3 and Compose 5.7.0 work with the running WSL2 docker-desktop distribution. Initial engine-startup API 500 resolved once startup completed; no application workaround required.
+- Initialized new local PostgreSQL volume using a random password saved only in ignored .env; no existing container/volume was deleted. Windows refused binding port 5432, so set local POSTGRES_PORT=55432 after checking it was available. Compose still publishes loopback only; container uses 5432. Existing application supports this setting unchanged.
+- PASS: docker compose config --quiet; docker compose --progress quiet up -d --wait db; container running/healthy at 127.0.0.1:55432. PostgreSQL reports 16.15 (Debian 16.15-1.pgdg12+2).
+- PASS: RUN_DB_TESTS=1 with .venv/Scripts/python.exe -m pytest -q -> 6 passed in 4.90s, no skips. Real SQLAlchemy SELECT 1 passed; temporary local HTTP server returned GET / -> 200 and GET /health -> 200 with database=ok. Verified at 2026-11-11T12:06:17.446326+00:00 (UTC). Temporary HTTP server stopped; PostgreSQL remains running.
+- Changes: docs/PROGRESS.md, README local-port troubleshooting; local .env excluded from Git. No code/design change, no cloud operation, no data deletion.
+- Git: separate Phase 01 acceptance commit/push and remote SHA check before beginning Phase 02. Prior historical BLOCKED entries are superseded by this verified result.
+- Next: implement only prompts/02-DATABASE-SEED.md as explicitly requested in this chat.
+
+
+### 2026-11-11 — Phase 02 data model and reference seed completed
+- Scope: SQLAlchemy models for Video, OutputProfile, TranscodeJob, OutputObject, VideoPermission and OutboxEvent. UUID public IDs; logical-job/version/profile uniqueness; unique output kind per job; composite FK prevents publishing output against a different job source/profile; permission/outbox FKs; bounded/nonnegative attempts, sizes/durations and valid states.
+- Minimal Flask init-db and seed-db commands registered. init-db only creates missing tables; no automatic drops/migrations. Seed transaction commits videos/jobs/outbox/permissions together and preserves existing rows; conflicting seed values abort without overwriting user data. No queue transport, lease execution, processing, storage or authentication implemented.
+- Real dataset: ten synthetic testsrc2/sine clips, 320x180 H.264/AAC, durations 1–3 seconds; actual sizes 39161–111697 bytes. Generated manifest includes title, SHA256, expected duration/profile/output properties and viewer permissions. Owner fixture owns ten; Viewer permitted on five even-numbered clips. Fixture UIDs are not real login accounts.
+- Determinism: stable UUID5 seed IDs; generating dataset twice using installed FFmpeg produced identical manifests/hashes. Cross-FFmpeg-version bitstream equality is not promised. local-sha256 content versions are explicitly local fixture identifiers, never fabricated GCS generations; documented in DATA_MODEL and ADR-009. No READY videos, output objects or fake playback evidence seeded.
+- Commands PASS: .venv/Scripts/python.exe -m app.seed_media --output-dir .local/seed; Flask init-db twice; Flask seed-db twice; pip check -> no broken requirements. Docker PostgreSQL 16.15 remains running and healthy at loopback port 55432.
+- Real public-schema counts after both seeds: videos=10, output_profiles=1, transcode_jobs=10, output_objects=0, video_permissions=5, outbox_events=10. Job/outbox payload versions match; no output pointers published.
+- Tests PASS: RUN_DB_TESTS=1 .venv/Scripts/python.exe -m pytest -q -> 20 passed in 6.91s. Tests cover actual ffprobe metadata for all ten clips, repeatable hashes/IDs/counts, tampered input hash rejection, duplicate logical-job/output/permission constraints, new source-version jobs, invalid attempts/status, wrong output version/profile, orphan rows, transaction rollback and seed conflict after earlier inserts. These are local DB/media checks, not delivery/failure-drill/cloud evidence.
+- Isolation: every DB-model test creates its own test_phase02_<UUID> schema and removes only that schema; public demo data preserved. Verified no test schemas left behind; post-seed health returned 200. Verification UTC: 2026-11-11T12:11:58.629976+00:00.
+- Files: app/models.py, app/seed.py, app/seed_media.py, app/db_cli.py, app/main.py; tests/conftest.py, tests/test_models.py, tests/test_seed.py; .gitignore, README.md, docs/DATA_MODEL.md, docs/DECISIONS.md, docs/PROGRESS.md. No new Python dependency. Local .env, generated .local media and test caches excluded from Git.
+- Checks before commit: whitespace/diff scope and staged secret-pattern scan; no secrets or generated clips staged. Cloud actions/cost: none. No remaining Phase 01/02 blocker; authentication, real private storage, transcode/reliability and cloud acceptance belong to later phases.
+- Git: Phase 01 acceptance committed/pushed separately as 4f3802200a7849c125d5d954f70ba2f5550817ea with remote SHA verified. Separate Phase 02 commit/push follows these checks, compare local/remote SHA; final hash is in Git history and chat handoff.
+- Next phase: prompts/03-AUTH.md, only on a subsequent request. No Phase 03 implementation in this task.
+
+
+### 2026-11-11 — Phase 03 local auth gate
+- Implemented official Firebase Admin SDK 7.7.0 verification; only verified UID is trusted. Test verifier requires TESTING=True; runtime rejects emulator bypass. Sanitized API errors/request IDs; /api/me and private video metadata with Owner/explicit Viewer access. Missing/invalid/expired credentials -> 401; forbidden video -> 404; missing project/ADC/certificate connectivity -> safe 503.
+- PASS: RUN_DB_TESTS=1 .venv/Scripts/python.exe -m pytest -q -> 36 passed in 8.16s. Direct API tests cover Owner/Viewer/stranger, permission revocation, forged UID body/header, absent/bad/expired tokens and blocked runtime test hooks. Actual Firebase SDK verifies locally RSA-signed tokens with test certificate transport: valid signature accepted; wrong signature/audience/issuer/expiry rejected. These are cryptographic/offline tests, not Firebase project login evidence.
+- Files: app/auth.py, app/main.py, requirements.txt, tests/test_auth.py, tests/test_firebase_sdk.py, README.md, docs/PROGRESS.md. No DB data/schema reset; no cloud resources or fake runtime login.
+- BLOCKED external verification: Firebase project, ADC and real demo-user ID tokens not provided. Next: configure FIREBASE_PROJECT_ID privately in .env and authorized ADC/workload identity, then call GET /api/me with a real client-issued Firebase ID token (do not paste/log it). Never use a permanent JSON service-account key. SDK default does not check token revocation on each call; ID token expiry limits that window; permission revocation is checked every request.
+- Local Phase 03 acceptance complete; external identity integration explicitly unverified. Separate commit/push and SHA verification before Phase 04; user explicitly authorized proceeding with local Phase 04 storage tests. No UI polishing or upload worker in this phase.
+
+
+### 2026-11-11 — Phase 04 local portal and private storage gate
+- Implemented clean Jinja/CSS/vanilla-JS desktop/mobile portal. Email/password browser sign-in calls official Firebase REST; server verifies ID token with SDK. No password handled by portal server, no token persistence in browser storage, no fake runtime login. Missing auth configuration remains safe 503; public config only exposes Firebase client Web API key.
+- Implemented authenticated create/list/status/complete/permission/playback/thumbnail/admin-monitor routes. Owner is verified UID, not client body. Every private endpoint authorizes on server; unauthorized viewers receive no signed URL/object bytes. List bounded to 100 permitted rows.
+- LocalStorage keeps objects/metadata/persistent signing key under ignored .local/objects, never static/public. Random object paths, generation/size checks, 120-second operation-scoped signed URLs, write-once input, real byte limit, range playback, path traversal rejection, atomic concurrent signing-key initialization, log ticket redaction, no-store/no-referrer/nosniff/CSP. Local adapter deliberately blocked on Cloud Run; GCS deferred.
+- Complete uses PostgreSQL row lock + unique key + one transaction for Job/Outbox. Duplicate/concurrent completions yield the same logical job. Playback requires both output pointers/files and matching source/profile/generation; QUEUED/failed/partial outputs denied. Already issued URLs are capabilities valid until TTL after permission revocation; new URL requests denied immediately.
+- PASS: RUN_DB_TESTS=1 .venv/Scripts/python.exe -m pytest -q -> 55 passed in 11.60s, no skips. Includes earlier 36 Phase 03 tests, signed URL expiry/tampering/cross-operation, actual upload limits/type/metadata, concurrent complete, event-insert rollback, forbidden/allowed/revoked viewing, missing/changed outputs, Range responses, admin access and parallel signing key creation. READY byte fixtures are storage-contract fixtures, not real transcode evidence.
+- PASS: node --check app/static/portal.js; pip check -> no broken requirements; whitespace checks. Only Firebase Admin SDK added as direct dependency in Phase 03; formatter was a temporary dev command, no Node app/dependency added.
+- Browser QA PASS: Browser plugin not available; used bundled Playwright + installed Edge headless against temporary TESTING-only loopback server, isolated PostgreSQL schema and actual FFmpeg source clip. Official Firebase REST request intercepted only by QA harness and test verifier restricted to TESTING=True. Desktop 1366x900 and mobile 390x844: page/title/content, no overlay, no JS error, no horizontal overflow, screenshot inspection; owner email/password form -> upload real clip -> grant Viewer -> Viewer sees permitted item/owner form hidden -> QUEUED playback/thumbnail correctly 409. Expected 409 and favicon 404 were not counted as app errors. No production provider or GCS claims.
+- Screenshots and QA scripts outside repository: C:/Users/Deli/.codex/visualizations/2026/11/11/01a1c806-a613-7300-8f46-e5faf4f3c5e6/phase04-desktop.png, phase04-interaction.png, phase04-mobile.png. Server stopped; QA-only schemas removed, zero remaining test schemas; public 10-video demo dataset unchanged. PostgreSQL remains healthy.
+- Files: app/storage.py, app/videos.py, app/auth.py, app/main.py, app/templates/index.html, app/static/portal.css, app/static/portal.js; tests/test_portal.py and auth config test; README, API_CONTRACT, DECISIONS, PROGRESS. Real .env only received blank Firebase config keys if missing; secrets/keys/media excluded from Git. ADR-010/011 record local adapter and provider sign-in tradeoffs.
+- BLOCKED external integration: provide project/client Web API key privately in .env (FIREBASE_PROJECT_ID/FIREBASE_WEB_API_KEY), authorized ADC/workload identity and configured Email/Password demo accounts; then run the local Flask command and sign in via portal. No permanent service-account key; no cloud resources provisioned. Real GCS signed URL/privacy/IAM tests belong to Phase 08, not this gate.
+- Remaining local boundary: corrupt/overlong/unsupported media may be privately uploaded then must fail worker probing in Phase 05; only MIME/byte/metadata validated now. No orphan cleanup task yet; incomplete upload metadata requires a new upload. No worker progress, READY outputs, live failure drill or Cloud evidence fabricated.
+- Git: Phase 03 pushed separately as 3cdd2a6e861bd52912766734779562b552eb5139 with matching remote SHA. Phase 04 scoped commit/push follows final staged diff/secret scan; verify remote SHA. Next: Phase 05 only after a new user request.
+
+
+### 2026-11-11 — Phase 05 local FFmpeg worker PASS
+- Files: worker/__init__.py, worker/transcode.py, worker/Dockerfile, .dockerignore, tests/test_transcode.py, pytest.ini, README, DECISIONS, PROGRESS. Standalone stdlib converter only; no DB READY/pipeline implementation yet, no new Python runtime dependency.
+- ffprobe enforces actual bytes <=50 MB, duration <=30 s, bounded dimensions/fps, square pixels, allowlisted formats/codecs/stream counts. MP4 H.264/yuv420p + optional AAC, max 854x480/30 fps, aspect ratio preserved and no-audio accepted; real JPG generated and both outputs probed before metadata.json. Refuses nonempty attempt directories; catches encode/probe timeouts with bounded execution and sanitized error codes. On ordinary failures, partial attempt output files are removed; killed-process recovery belongs to Phase 06.
+- Docker build PASS: video-worker:phase05, image ID sha256:754331da7c50ae5423a313a6e290c8c548c17887907db50e4ef95daf8780e2ba. .dockerignore sends only worker sources; no .env, storage keys or app dataset in image. Non-root uid 10001; actual tests used network none, readonly root/input, 1 CPU/512 MB, 64 pids and tmpfs 32 MB.
+- PASS: host real FFmpeg cases including all ten reference clips, audio/no-audio, portrait ratio, corrupt/oversized/31-second/dimension/unsupported-codec rejection, existing-output preservation and thumbnail failure after MP4. PASS actual Docker conversions audio/no-audio and corrupt/overlong rejection. No simulated output used for this gate.
+- Final command: RUN_DB_TESTS=1 RUN_DOCKER_TESTS=1 .venv/Scripts/python.exe -m pytest -q -> 70 passed in 21.85s, zero skips. Build and regression completed before Phase 06 began. No cloud resources, paid tests, service-account keys or real Cloud Run failure drill.
+- Limits/tradeoff documented in ADR-012 and README; source codec/raster bounds are explicit demo rejection policy, not claimed support for every video format. Production Firebase/GCS remain BLOCKED independently of this local gate.
+- Git: scoped Phase 05 commit/push and local/remote SHA comparison before starting Phase 06. Next: Phase 06 local DB outbox/lease/retry, authorized by user; no Phase 07 work.
+
+### 2026-11-11 — Phase 06 local reliability PASS; requested stopping point
+- Prior gate: Phase 05 delivered as 67cab639736eeb198f2aaac60eda7f6e65965c71; local and origin/main SHA matched before Phase 06 started.
+- Files: app/pipeline.py, app/queue_local.py, app/worker_runner.py, app/pipeline_cli.py, app/main.py, tests/test_pipeline.py; README, DATA_MODEL, PIPELINE_RELIABILITY, DECISIONS, EVIDENCE, PROGRESS. No new dependency/schema/service. Existing transactional job/outbox creation retained and regression tested.
+- Implemented stable event UUID, local file queue fsync/rename, row-locked central claim, 180-second lease + attempt UUID fencing, bounded Docker execution, immutable private staging and atomic two-output/READY publication. Source version and both output formats checked against actual files. Structured logs record measured timings/bytes without secrets. Compact job/attempt paths fix Windows MAX_PATH; ADR-013 explains mapping to immutable source/profile identity.
+- Retries: max 3 logical attempts with 5/10-second backoff; permanent invalid media/source errors FAILED immediately; max 5 relay/dispatch deliveries per campaign; malformed messages to local dead letters. local-jobs shows operator state; retry-job explicitly resets only FAILED for a new bounded campaign. Reconcile requires another local-process invocation, not an unattended service. Orphan scratch/output files remain private; automated cleanup/disk quota not implemented.
+- Final regression PASS: RUN_DB_TESTS=1 RUN_DOCKER_TESTS=1 .venv/Scripts/python.exe -m pytest -q -> **86 passed in 50.31s, zero skips**. Real PostgreSQL isolated schemas, real host FFmpeg and actual Docker image. Includes duplicate/concurrent delivery; relay crash after publish; crash after partial MP4 and after staging; output DB transaction rollback; source tampering; stale attempt fence; bounded retry/publish/lost dispatch; failed ack; queue restart; production adapter/auth guards; authorized viewer playback and forbidden outsider.
+- Actual local kill PASS: test_kill_actual_ffmpeg_container_then_retry observed ffmpeg via docker top pid,comm, killed only its UUID-named test container, verified RETRYING/zero published pointers, then real Docker retry produced READY with exactly 2 pointers and attempts=2. Retry deadlines advanced through injected test clock; no claim of waiting 180 seconds or performing a Cloud Run drill.
+- Actual operator smoke PASS: .venv/Scripts/python.exe -m flask --app app.main local-process --limit 10 -> published=10 and ten READY outcomes. Read-only SQL verification: 10 READY jobs, 10 MP4 + 10 thumbnail rows, 0 unpublished events; FileBroker.receive() is None. Generated outputs remain ignored under .local. No fake account login used by CLI. Fixture demo-owner/demo-viewer still are not real Firebase accounts.
+- Additional checks PASS: pip check; scoped whitespace/content/secret-file checks before commit. .env and .local/objects/.local/queue ignored. Runtime rejects APP_ENV other than local and Cloud Run K_SERVICE with current adapters. Fake broker/verifier exist only in tests; no production mock deployed. No cloud resources, billing, IAM changes or data deletion.
+- Git: scoped Phase 06 commit/push follows staged review; verify HEAD equals origin/main via git ls-remote. Commit identity is available from git log -1; final response records verified SHA. No force push.
+- **STOP:** local acceptance through Phase 06 complete; Phase 07–08 remain unstarted/BLOCKED by external setup below. Cloud failure drill/alerts/p95/cost/CI deployment remain unverified; local kill does not satisfy Phase 09.
+
+#### Missing before Phase 07–08 (no cloud operations performed)
+- Terraform and gcloud not found in current PATH. Next local check after installing/reopening shell: `Get-Command terraform,gcloud`; then `terraform version` and `gcloud version`. Tool installation alone does not authorize deployment.
+- Need approved GCP project ID, region choice, billing/budget ceiling, quotas/tier and permitted IAM principal. No Terraform configuration/plan/apply for these phases has been executed. Next task: read prompts/07-TERRAFORM-PREFLIGHT.md and linked cloud-safety skills before writing infra/preflight commands. Paid apply requires explicit approval.
+- Need real Firebase project/client Web API key privately configured in .env, Email/Password provider + demo Owner/Viewer accounts, authorized ADC/workload identity; then run `.venv/Scripts/python.exe -m flask --app app.main run --host 127.0.0.1 --port 5000` and verify actual sign-in /api/me and permissions. Do not paste tokens, store permanent JSON keys or replace auth with fixtures.
+- Phase 08 must implement real GCS private storage/signing adapter, Pub/Sub authenticated dispatcher + dead-letter, Cloud Run Job integration, and test deployed private upload/playback. Current adapters intentionally refuse production. Infrastructure still needed per fixed architecture: Artifact Registry, Cloud SQL PostgreSQL/connectivity, private buckets, Pub/Sub delivery, Cloud Run service/job, Secret Manager, appropriate service identities/IAM and later scheduler/monitoring/CI identity. No resource URL, price or permissions are assumed provisioned.
+
+### 2026-11-11 — User-requested frontend redesign (local UI scope only)
+- Applied frontend-design and student-simple-code; used frontend-testing-debugging for rendered QA. User explicitly authorized this UI refinement after Phase 06; no Phase 07 implementation or architecture change.
+- Files: app/templates/index.html, app/static/portal.css, app/static/portal.js, docs/PROGRESS.md. Palette: navy #14223c, ink #17233b, canvas #f5f7fa, cobalt #315de4 and quiet borders. Local Bahnschrift/Segoe UI font stack; no external fonts, packages or image requests. Desktop sidebar, responsive navigation, compact account form, native file selection, clear library empty state/status badges, improved spacing and short Vietnamese copy. Abstract CSS video illustration is decorative, not a fabricated output thumbnail.
+- Real in-page anchors with active/aria-current state, keyboard skip link/focus outlines, explicit input labels, reduced-motion preference and mobile stacking. Login fields hide only after verified identity; logout/error restores them. Upload/status/permissions/playback contracts remain unchanged; removed stale copy claiming worker is a future phase. No new feature, frontend framework or fake runtime login.
+- Regression PASS: RUN_DB_TESTS=1 RUN_DOCKER_TESTS=1 .venv/Scripts/python.exe -m pytest -q -> 86 passed in 41.28 s, zero skips. node --check app/static/portal.js PASS; final formatter and scoped whitespace checks PASS. Final navigation refinement separately verified in real browser after formatting.
+- Browser plugin not available; used installed Edge + existing bundled Playwright without adding dependencies. Isolated TESTING-only Flask server on 127.0.0.1:5017 with separate PostgreSQL schema: desktop 1366x900/mobile 390x844, page identity/content, no framework overlay/JS errors/overflow, account sign-in via test-intercepted Firebase REST, actual clip upload, grant Viewer, logout/login Viewer, owner controls hidden, queued playback safely denied (expected HTTP 409). Test server stopped and only its temporary schema removed. This is not a live Firebase sign-in claim.
+- Real runtime browser PASS at http://127.0.0.1:5000/: keyboard skip link, anchor/active navigation, widths 320/390/768/1366 without horizontal overflow, no JS errors, missing Firebase configuration gives understandable error and retains login form. Real local Flask server left running for preview; no test verifier on this server. Live Firebase remains BLOCKED pending prior configuration; no Cloud resources/bills.
+- Screenshots/scripts outside repository: C:/Users/Deli/.codex/visualizations/2026/11/11/01a1c806-a613-7300-8f46-e5faf4f3c5e6/redesign-desktop.png, redesign-mobile-entry.png, redesign-interaction.png, redesign-mobile.png; redesign_browser_qa.cjs and redesign_runtime_qa.cjs. Desktop/mobile screenshots visually inspected; all visible assets loaded.
+- Git: review scoped diff/staged names, verify secrets ignored, commit and push immediately; compare HEAD with remote main. Next phase remains 07 preflight only when requested; prior cloud/auth blockers unchanged.
+
+### 2026-11-17 — Phase 07: Terraform written; fmt/validate/plan BLOCKED
+- Context: work resumed on a different machine from the GitHub ZIP of `main` (no `.git`, `.venv`, `.env` or `.local`). Checked tools: Python 3.12.10, Git 2.56.0, Node, winget and WSL present; `docker`, `ffmpeg`, `terraform`, `gcloud`, `gh`, `psql` NOT found. The 86-test local result above was therefore not rerun here; no application code was changed in this phase.
+- Scope completed: minimal Terraform for the documented topology in `infra/` (35 resources + 1 data source, as written): APIs, VPC/subnet + Private Services Access, private-IP zonal Cloud SQL PostgreSQL 16 with DB/user and Secret Manager password, private bucket with public access prevention and `staging/` lifecycle, Artifact Registry, Pub/Sub topic + OIDC push subscription + dead-letter, two paused Cloud Scheduler jobs, Cloud Run `video-api`/`video-relay`/`video-dispatcher`, Cloud Run Job `video-worker`, six service accounts with resource-level least-privilege bindings. All instance counts, CPU/memory, timeouts and retries are explicit. No ALB, NAT, CDN or VPC connector.
+- Deliberately NOT included (later phases or needs access): monitoring dashboard/alert (Phase 10), GitHub Workload Identity Federation and remote state (Phase 11), billing budget (needs billing-account permission; create manually before any apply), Firebase/Identity Platform configuration, Artifact Registry cleanup policy.
+- Files changed: infra/versions.tf, variables.tf, main.tf, iam.tf, run.tf, messaging.tf, outputs.tf, terraform.tfvars.example; docs/CLOUD_DEPLOY.md (Phase 07 section: resources, IAM table, networking assumptions, Phase 08 contracts, cost risks), docs/DECISIONS.md (ADR-014), docs/PROGRESS.md.
+- Test command/result:
+  - `terraform fmt -check`, `terraform init`, `terraform validate`: **BLOCKED** — Terraform is not installed. The HCL has never been parsed by Terraform; provider argument names (google `~> 6.0`) are unverified and may need fixes on first validate.
+  - `terraform plan`: **BLOCKED** — no Terraform, no gcloud, no project ID, no credentials.
+  - Only check actually run: a text scan of the `.tf` files for balanced braces/brackets/quotes, tabs, trailing whitespace and duplicate block addresses — clean. This is not a substitute for `fmt`/`validate`.
+  - Application tests: not run (no app change; Docker/FFmpeg/.venv absent on this machine).
+- Known risks to check on the first real validate/plan: Pub/Sub service agent may not exist until the API is first used (IAM bindings to it would fail once, then succeed on re-apply); Direct VPC egress for jobs/services and `db-f1-micro` availability in `asia-southeast1`; organisation policy may reject the `allUsers` invoker on `video-api`; internal-ingress acceptance of Pub/Sub push and Scheduler; enabling APIs requires Service Usage and Cloud Resource Manager to be enabled already.
+- Cloud operations done? None. No login, no plan, no apply, no resources, no cost.
+- Git commit hash and push verification: **BLOCKED** — the working copy has no `.git`. To reattach without losing the new files (run inside the project folder, needs access to the private repo):
+  `git init -b main` ; `git remote add origin https://github.com/binzvn/DTDM.git` ; `git fetch origin main` ; `git reset origin/main` ; `git status` (should list only `infra/` and the three docs) ; then stage those paths, commit, `git push origin main`, and compare `git rev-parse HEAD` with `git ls-remote origin refs/heads/main`.
+- Exact next commands to clear the Phase 07 gate:
+  1. `winget install --id Hashicorp.Terraform --exact` then, in a new terminal, `terraform version`.
+  2. `terraform -chdir=infra fmt -check -recursive` ; `terraform -chdir=infra init` ; `terraform -chdir=infra validate`. Commit the generated `infra/.terraform.lock.hcl`.
+  3. For a plan only: `winget install --id Google.CloudSDK --exact`, `gcloud auth application-default login`, copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars` with the approved project ID, then `terraform -chdir=infra plan`. Review the creations and the cost risks in docs/CLOUD_DEPLOY.md.
+  4. **Do not run `terraform apply`** until the owner explicitly approves the project, budget and the public `allUsers` invoker grant.
+- Next phase: finish the Phase 07 gate (steps 1–3). Phase 08 only after that and after explicit cloud/billing approval.
+
+### 2026-11-17 — Phase 07 follow-up: fmt/init/validate PASS; plan still BLOCKED
+- Supersedes the fmt/init/validate BLOCKED lines in the entry above. User approved installing Terraform: `winget install --id Hashicorp.Terraform --exact --source winget` -> Terraform v1.17.1 (winget verified the installer hash). The winget alias needs a new terminal; this session called the package executable directly.
+- PASS: `terraform -chdir=infra fmt -check -recursive -diff` -> exit 0, no diff.
+- PASS: `terraform -chdir=infra init -input=false` -> exit 0; selected hashicorp/google v6.50.0 and hashicorp/random v3.9.1 (both signed by HashiCorp); created `infra/.terraform.lock.hcl` (commit it). `infra/.terraform/` is gitignored.
+- PASS: `terraform -chdir=infra validate` -> "Success! The configuration is valid." No `.tf` file needed changes after the first write.
+- What validate does and does not prove: argument names, types and references match the provider schema. It does not contact GCP, so region/tier availability, quotas, organisation policy, IAM permissions, the Pub/Sub service-agent timing and all networking assumptions in docs/CLOUD_DEPLOY.md remain unverified.
+- BLOCKED: `terraform plan` — gcloud not installed, no approved project ID, no credentials. Next commands: `winget install --id Google.CloudSDK --exact` ; new terminal ; `gcloud auth application-default login` ; copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars` and set the approved `project_id` ; `terraform -chdir=infra plan`. No apply without explicit approval.
+- Files changed: infra/.terraform.lock.hcl (new), docs/PROGRESS.md. Cloud operations/cost: none. Application tests: not run (no app change; Docker/FFmpeg/.venv absent here).
+- Git: still BLOCKED (no `.git` in this working copy); reattach commands are in the entry above.
+
+### 2026-11-17 — Phase 07 follow-up: gcloud installed; plan BLOCKED on login and project ID
+- User approved installing the SDK: `winget install --id Google.CloudSDK --exact --source winget` -> Google Cloud SDK 593.0.0 (winget verified the installer hash; the installer requested administrator rights). Installed at `%LOCALAPPDATA%\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd`; `gcloud version` -> exit 0.
+- Observed state (read-only checks, no login attempted): `gcloud auth list` -> no accounts; `gcloud config get-value project` -> unset; no application-default credentials file. No GCP API was called.
+- BLOCKED: `terraform plan`. Remaining steps need the project owner personally: (1) in a new terminal run `gcloud auth application-default login` and sign in through the browser; (2) supply the approved GCP project ID; (3) copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars` and set `project_id`; (4) `terraform -chdir=infra plan`. The signed-in identity needs read access to the project for the plan to refresh. No apply without explicit approval.
+- Files changed: docs/PROGRESS.md only. Cloud operations/cost: none. Git: still BLOCKED (no `.git`).
+
+### 2026-11-17 — Phase 07 follow-up: ADC login done; plan BLOCKED on project choice only
+- The owner completed `gcloud auth application-default login` in a terminal tab (browser sign-in by the owner; no credentials handled by the assistant). Application-default credentials file now exists. gcloud warned that no quota project is set for ADC.
+- Read-only check with ADC: Cloud Resource Manager project list returned two projects, one ACTIVE (an auto-created default project) and one in DELETE_REQUESTED. Neither has been confirmed by the owner as the approved project for this course work; project IDs are intentionally not recorded here until one is approved.
+- BLOCKED: `terraform plan` — waiting for the owner to name the target project ID. Then: create `infra/terraform.tfvars` with `project_id`, run `terraform -chdir=infra plan`. Billing link, budget and quotas of the chosen project remain unverified. No apply without explicit approval.
+- Files changed: docs/PROGRESS.md only. Cloud operations: one read-only project list; no resources, no cost. Git: still BLOCKED (no `.git`).
+
+### 2026-11-17 — Phase 07 gate PASS: terraform plan (plan only, nothing applied)
+- Owner chose project `gen-lang-client-0845795618` (auto-created "Default Gemini Project", ACTIVE) as the **plan-only** target. It is not approved for apply; a dedicated project may replace it by changing one line in the gitignored `infra/terraform.tfvars` (created this step: `project_id`, `region = asia-southeast1`).
+- PASS: `terraform -chdir=infra plan -input=false -lock=false` -> exit 0, no errors or warnings: **Plan: 57 to add, 0 to change, 0 to destroy.** (35 resource blocks expand to 57 instances through `for_each`: 11 APIs, 6 service accounts, 3 services, etc.) No `-out` file and no state file were written.
+- Planned creations, by type: 11 project services; VPC, subnet, PSA range + service-networking connection; Cloud SQL instance, database, user; random password, secret + version, 4 secret accessors; bucket + 4 bucket IAM members; Artifact Registry repo; 2 topics, 2 subscriptions, 3 Pub/Sub IAM members; 6 service accounts + 2 service-account IAM members; 3 Cloud Run services + 4 invoker bindings (one is `allUsers` on `video-api`); 1 Cloud Run job + 1 executor binding; 2 Cloud Scheduler jobs (paused).
+- What this plan proves: credentials work, the project is readable, the configuration resolves against the live provider. What it does **not** prove: that the project has billing linked, that `db-f1-micro`/Direct VPC egress/quotas are available in `asia-southeast1`, that organisation policy allows the `allUsers` grant or the peering, or any cost figure. Those surface only at apply and remain unverified. gcloud also warned that ADC has no quota project; the plan did not need one.
+- Phase 07 acceptance per docs/PHASES.md (`fmt`, `validate`, plan if allowed; no apply): met. Cost risks and networking assumptions are in docs/CLOUD_DEPLOY.md.
+- Files changed: docs/PROGRESS.md; local-only infra/terraform.tfvars (gitignored). Cloud operations: read-only plan refresh; no resources created, no cost.
+- Git: still BLOCKED (no `.git` in this working copy); reattach commands are in the first Phase 07 entry. Files to commit: infra/*.tf, infra/terraform.tfvars.example, infra/.terraform.lock.hcl, docs/CLOUD_DEPLOY.md, docs/DECISIONS.md, docs/PROGRESS.md.
+- Next phase: prompts/08-GCP-INTEGRATION.md — only on a new request and only after explicit approval of the deployment project, billing/budget and the public invoker grant. **No `terraform apply` has been run.**
+
+### 2026-11-17 — Phase 07 (new): Windows Server VPS infrastructure and migration — preparation only
+
+Owner decision: no Google Cloud; production runs natively on an existing Windows Server VPS (3 vCPU, 4 GB). This entry supersedes the GCP Phase 07 entries above for planning purposes; they remain as history. Owner also chose: install test tools on the dev machine, local accounts instead of Firebase, and **commit locally without pushing**.
+
+#### Task 1 — audit of the repository as found (before changes)
+| Area | Found | Classification |
+| --- | --- | --- |
+| Flask app (`app/main.py`), Jinja portal, request IDs, security headers | Working, tested | Keep |
+| Models: 6 tables, constraints; "migration" = `init-db` (`create_all`, no drops) | Working, tested | Keep; extended additively |
+| Auth: Firebase Admin SDK verification, never configured against a real project; test verifier hook | Offline tests only | Adapter switch: local accounts added, Firebase kept as option |
+| Upload/list/status/permissions/playback APIs, Range via `send_file` | Working, tested | Keep; delete API and progress added |
+| Local private storage with signed tickets, write-once, traversal check | Working, tested | Keep; hardened for Windows (names, junctions, free space, streamed hashing) |
+| Outbox + relay + claim/lease + reconcile + bounded retry (`app/pipeline.py`) | Working, tested with fake transport | Keep unchanged in logic |
+| Transport: `FileBroker` (file queue), dev-only | Working | Keep for dev; production adapter added (`PgBroker`) |
+| Runner: `run_container` (Docker) | Working where Docker exists | Keep for dev; production adapter added (`run_native`) |
+| Worker media code `worker/transcode.py` | Working | Needed Windows changes: tool paths, thread/timeout/size settings, progress, error detail |
+| Runtime guard refusing every non-local `APP_ENV` | By design for Cloud Run | Changed: production allowed with explicit private absolute paths |
+| No production server, no service definitions, no logging config, no backup, no delete, no cleanup | Missing | Not implemented before; added now |
+| `init-db` did not create the output profile (only `seed-db` did) | Latent defect: a fresh production DB could not accept uploads | Fixed (found by the rehearsal) |
+| Dockerfile, compose.yaml, `infra/` Terraform, GCP docs/prompts | Present | Archived / dev-only; untouched in content |
+| Risk to Phase 01–06 | `storage.py`, `pipeline.py`, `transcode.py`, `main.py`, `videos.py` were edited | Mitigated: all pre-existing tests still pass unmodified |
+
+#### What was built
+- Storage: strict object-name pattern, Windows device names and symlink/junction refusal, free-space check (507), configurable limit, fsync, streamed SHA-256 with a verified-hash cache, `delete`.
+- API: `DELETE /api/videos/{id}`, measured `progress_percent`, `/api/config`, richer admin monitor, structured access log without query strings.
+- Local accounts: `users` + `auth_sessions`, scrypt, lockout, per-IP limit, login/logout, CLI `create-user`/`set-password`/`disable-user`/`enable-user`.
+- Queue: `queue_messages` + `PgBroker` (SKIP LOCKED, visibility timeout, delivery cap, dead rows).
+- Worker: `run_native` (Job Object: kill-on-close, memory cap, CPU affinity, low priority, timeout, cancellation), heartbeat + progress, `python -m app.worker_service` loop with single-instance advisory lock, graceful stop, hourly cleanup.
+- Serving: `python -m app.serve` (Waitress, loopback, trusted-proxy handling), `deploy/windows/Caddyfile`.
+- Operations: rotating redacted JSON logs, cleanup of temporary/abandoned/orphan data, `system-status`.
+- Scripts (`scripts/windows/`): preflight, install-prerequisites, setup-database, install-services, start/stop/restart-services, status, healthcheck, register-tasks, backup, restore, rehearsal; plus `scripts/smoke_test.py`.
+- Docs: six `WINDOWS_VPS_*.md`, PHASES, AGENTS, README, DECISIONS (ADR-015–020), DATA_MODEL, API_CONTRACT, PIPELINE_RELIABILITY, SECURITY, `.env.example`, archive banners.
+
+#### Test evidence (all real, Windows 11 Pro build 26300 dev machine, Python 3.12.10, PostgreSQL 16.4 portable on 127.0.0.1:55432, FFmpeg 9.0.1, Caddy 2.11.9)
+- `RUN_DB_TESTS=1 .venv\Scripts\python.exe -m pytest -q --basetemp=D:\VideoPortalDev\pytest-tmp` -> **126 passed, 6 skipped in 150.64 s**. The 6 skips are the Docker-image tests (4 in test_transcode, 2 in test_pipeline); Docker is not installed and is excluded by decision, so `run_container` was NOT re-verified on this machine.
+- All 80 pre-existing non-Docker tests pass without modification. New file `tests/test_windows_vps.py`: 46 tests covering Windows paths, upload limits, storage full, junction refusal, authorization on every private API, Range seeking, delete, queue concurrency/visibility/dead letters/delivery cap, native pipeline with real FFmpeg, backlog on one worker, worker restart recovery, heartbeat/lease loss, FFmpeg timeout and cancellation killing the process tree, worker death not leaving FFmpeg, 2-CPU confinement, single-worker lock, additive migration, cleanup, production path guard, log redaction/rotation, CLI account management, backup+restore scripts round trip, worker service graceful shutdown and Waitress as real subprocesses.
+- Bugs found by real runs and fixed: advisory lock not released (pooled connection); `flask` auto-loading a stray `.env` over the explicit config file; missing default profile on a fresh DB; `-threads 2` not bounding CPU (3.2 cores measured -> affinity cap, 1.8 cores); three PowerShell strict-mode bugs (preflight port checks, status folder sizes, rehearsal argument quoting).
+- `scripts\windows\rehearsal.ps1` (APP_ENV=production, least-privilege DB role, Caddy internal TLS on https://localhost:8443 -> Waitress -> PostgreSQL queue -> native FFmpeg): **REHEARSAL OK**, smoke test 20/20. 30 s 1280x720 clip (19.94 MB): upload 1.61 s, processing 14.25 s, progress seen 17/47/73/99, output 3.23 MB. Peak working set: api 98 MB, worker 123 MB, ffmpeg 113 MB, caddy 49 MB, postgres 146 MB. 215 MB body -> 413 at the proxy; no ticket in the Caddy access log; HSTS/X-Frame-Options present, Server header absent. These are dev-machine numbers (8 logical CPUs), **not VPS measurements**.
+- Browser check on the dev server: local sign-in, library, playback 854x480 with seek to 20 s, delete with confirmation, sign-out; no application console errors. Driven through page scripts because the browser pane was hidden.
+
+#### Script verification matrix
+| Script | What actually ran | Not verified |
+| --- | --- | --- |
+| preflight.ps1 | Real run, 35 checks, correct FAILs for this machine (C: 0.7 GB free, no PostgreSQL Windows service), `-AllowNetwork`, JSON report | Windows Server edition; elevated run |
+| install-prerequisites.ps1 | Plan; `-Apply -SkipVenv` on `D:\VideoPortalDev\rehearsal` (folders + config template) | `-Download`, venv creation, any run on the VPS |
+| setup-database.ps1 | Plan; `-Apply -SkipInitDb` against real PostgreSQL: role `NOSUPERUSER NOCREATEDB NOCREATEROLE`, limit 20; re-run changed nothing | Interactive password prompt; `init-db` step inside the script (run separately) |
+| backup.ps1 / restore.ps1 | Real dump, verification, restore into a new DB, counts, drop of the drill DB; tamper and live-DB refusals (pytest) | `-OffsitePath`, `-IncludeStorage`, retention deletion of old files |
+| rehearsal.ps1, smoke_test.py | Real end-to-end run | Run on the VPS |
+| status.ps1, healthcheck.ps1 | Real runs (report missing services correctly) | With installed services |
+| install-services.ps1, register-tasks.ps1 | Plan mode; refusal without elevation | **Actual service installation, virtual accounts, NTFS ACLs, WinSW XML, scheduled tasks — UNVERIFIED** |
+| start/stop/restart-services.ps1 | Parse + refusal without elevation | With real services |
+| Caddyfile | `caddy validate` -> Valid configuration; served the rehearsal with `tls internal` | Public certificate with a real domain |
+
+#### Not done / unresolved
+- **Nothing was deployed.** No VPS access was used. No firewall, Defender, RDP, service or scheduled-task change anywhere.
+- Requirement risk: the brief asks for AWS/Azure/GCP, container-based transcoding and infrastructure from code; the VPS design departs from this (ADR-015). Needs instructor confirmation.
+- Off-VPS backup destination not chosen; a same-disk dump is not a recovery plan.
+- No domain yet: only Caddy's internal certificate was exercised; that is not valid public HTTPS.
+- Graceful stop while encoding under WinSW, disk-full during encoding, and recovery after an OS reboot are untested.
+- Native worker has no network/filesystem isolation (unlike the container).
+- No self-service password reset; IP rate limit is per-process memory.
+- Load test, p95, real failure drill, alert firing: later phases, on the VPS.
+
+#### Dev-machine side effects of this work (not the VPS)
+- Installed with owner approval: FFmpeg 9.0.1 and Caddy 2.11.9 via winget (user scope); PostgreSQL 16.4 portable binaries + data directory in `D:\VideoPortalDev` (no Windows service; started manually, loopback port 55432); earlier Terraform and Google Cloud SDK (now unused).
+- `D:\VideoPortalDev` also holds the rehearsal root, pytest temp files and the PostgreSQL superuser password file. `.env` (gitignored) points the repo at that database.
+- `caddy validate` created an empty `C:\VideoPortal\logs\caddy-access.log` (0 bytes); removal of `C:\VideoPortal` was blocked by the session's safety policy, so it is still there and can be deleted by hand.
+- Drive C: had under 1 GB free during this work.
+
+#### Cost
+Software added: Waitress, Caddy, WinSW, FFmpeg, PostgreSQL, Python — all free. No paid service is required by this design. The VPS itself is already paid. A public certificate through Caddy is free but needs a domain name, which may cost money if the owner does not have one.
+
+#### Git
+Local commit only (owner's choice); **not pushed**. Commit identity is in `git log -1`. Previously uncommitted GCP Phase 07 files (`infra/`, GCP doc edits) are included in the same local history.
+
+#### Next phase
+`prompts/08-VPS-DEPLOY.md`: run preflight on the VPS, fix FAILs, install prerequisites, set up the database, rehearse, then install services — each system change with owner approval. Do not start it without a new request.
+
+### 2026-11-17 — Phase 08 start: first preflight on the VPS (read-only) and script fixes
+- Owner copied the Phase 07 archive (commit 6d88df9) to the VPS and ran `preflight.ps1 -AllowNetwork`. Reported result: **PASS=19 WARN=8 FAIL=5**. Nothing was installed or changed on the VPS.
+- VPS facts as reported: Windows Server 2022 Standard build 20348, 3 logical processors, 4 GB RAM (1.9 GB free), C: 27.6 GB free, elevated session, ports 80/443/8000 free, DNS and outbound HTTPS working, Defender running.
+- FAIL: Python is 3.11.9 (3.12+ required; `Path.is_junction` and the tested dependency set); no PostgreSQL service or client tools; no FFmpeg/ffprobe. WARN: Caddy, WinSW and Git missing; long paths disabled.
+- **Security finding: Windows Firewall is disabled on all three profiles.** Not changed (owner decision pending). Until it is enabled or a provider-level firewall is confirmed, every listening port is reachable; PostgreSQL must be set to `listen_addresses = 'localhost'` immediately after installation. Enabling the firewall without an enabled RDP rule can lock the owner out.
+- Defects in my Phase 07 scripts exposed by this run and fixed locally:
+  - preflight printed "Firewall inbound 5432/8000: Not allowed from outside — PASS" while the firewall was off, which is wrong. It now reports the rules as not evaluated and adds the RDP port/rule state. The disabled-firewall branch could not be executed on the dev machine (its firewall is on): parse-checked only.
+  - preflight and install-prerequisites took the first `python` on PATH. New `Find-Python` prefers an all-users 3.12+, then the `py` launcher, then PATH; install-prerequisites accepts `-Python`.
+  - install-prerequisites `-Download` failed on FFmpeg: `Expand-Archive` in PowerShell 5.1 rejects files without a `.zip` extension. Now uses the .NET extractor and always removes its two temporary items.
+- Newly verified on the dev machine (scratch root `D:\VideoPortalDev\rehearsal2`): `install-prerequisites.ps1 -Apply -Download` end to end — venv with Python 3.12.10, packages installed, `pip check` clean, FFmpeg 9.0.2 (published SHA-256 matched, libx264 present), Caddy 2.11.9, WinSW 2.12.0; a second run changed nothing. New `install-services.ps1 -WriteConfigOnly` wrote the three WinSW definitions and WinSW parsed each one (state NonExistent); no service was installed. Still unverified: actual service installation, virtual accounts, NTFS ACLs, scheduled tasks.
+- Next on the VPS (owner actions, in order): decide the firewall question; install Python 3.12 for all users (side by side); install PostgreSQL 16 and restrict it to localhost; copy the updated archive to `C:\VideoPortal\app`; re-run preflight; then `install-prerequisites.ps1` (plan, then `-Apply -Download`).
+
+### 2026-11-17 — Phase 08 in progress: prerequisites, database and rehearsal on the VPS (results reported by the owner)
+All commands were run by the owner on the VPS (Windows Server 2022 Standard build 20348, 3 vCPU, 4 GB) from archive commit 5fe7f93 in `C:\VideoPortal\app`; outputs were pasted back and are summarised here. No service is installed yet; firewall, Defender and RDP untouched.
+- Installed by the owner: Python 3.12.0 for all users (side by side with the existing 3.11.9) and **PostgreSQL 18.7** (not 16 as planned). `ALTER SYSTEM SET listen_addresses = 'localhost'` + service restart; `SHOW listen_addresses` -> `localhost`.
+- Second preflight: **PASS=21 WARN=7 FAIL=2** (FAILs: ffmpeg/ffprobe not yet downloaded). Python 3.12.0 selected by `Find-Python`; `TCP 5432: PostgreSQL listens on loopback only`. The disabled-firewall branch added in 5fe7f93 ran correctly there: RDP port 3389, built-in Remote Desktop inbound rules enabled 3 of 3. Windows Firewall is still disabled on all profiles; the owner states the provider has its own firewall (its rules were not shown to me — unverified).
+- `install-prerequisites.ps1 -Apply -Download`: PASS. Folders, venv, `No broken requirements found.`, config template; FFmpeg, Caddy and WinSW downloaded with the same SHA-256 values as on the dev machine (60F467…, F2EF05…, 05B82D…).
+- `setup-database.ps1 -Apply` (interactive superuser password prompt): PASS on PostgreSQL 18.7. Created role `video_portal` and database `video_portal`, generated password stored in `C:\VideoPortal\config\.env`, `init-db` ran as the application role. Server `max_connections` is still 100 (suggestion printed, not applied).
+- `rehearsal.ps1`: **REHEARSAL OK**, smoke test **22/22** (includes delete), through Caddy internal TLS on https://localhost:8443 -> Waitress -> PostgreSQL 18 queue -> native FFmpeg. First real VPS measurements: 30 s 1280x720 clip (19.85 MB) upload 0.39 s, **processing 17.08 s**, progress seen 20/39/64/84, output 3.23 MB. Peak working set: api 102 MB, worker 129 MB, ffmpeg 109 MB, caddy 68 MB, postgres 197 MB (about 605 MB together). **FFmpeg averaged 1.6 cores** of the 3 vCPUs under the 2-CPU cap. 215 MB body -> 413; no ticket in the Caddy access log; HSTS and X-Frame-Options present, Server header hidden.
+- This is one clip, one run: not a load test, and not the ten reference clips.
+- Leftovers on the VPS from the rehearsal: folder `C:\VideoPortal\rehearsal` (test clip, a 215 MB dummy file, logs, Caddy's internal CA) and one `rehearsal-…@example.com` account with a random password in the `users` table.
+- Still not done: first real account, Caddyfile for the real site address (domain decision pending), service installation and NTFS ACLs (never executed anywhere), scheduled tasks, off-VPS backup, ten-clip run, public HTTPS.
+
+### 2026-11-18 — Phase 08 in progress: services installed and running on the VPS (results reported by the owner)
+Owner-run on the VPS; outputs pasted back. The public IP and account e-mail are deliberately not recorded in this file.
+- First real account created with `flask create-user … --admin` (interactive hidden password prompt worked on a real console).
+- No domain: `C:\VideoPortal\config\Caddyfile` generated from the template with the site address `https://<public IP>`, `tls internal` and `default_sni <public IP>`. The same shape was first checked on the dev machine (TLS handshake by IP without SNI succeeded). `caddy validate` on the VPS reported by the owner as done (output not pasted). **This is a self-signed certificate from Caddy's internal CA, not valid public HTTPS; browsers warn.**
+- `install-services.ps1 -WriteConfigOnly`: three definitions written, WinSW parsed each, dependency resolved to `postgresql-x64-18`.
+- **`install-services.ps1 -Apply`: PASS — first real execution of this script anywhere.** Root ACL locked down; WinSW reported all three services installed successfully. `Win32_Service.StartName`: `NT SERVICE\VideoPortal-API`, `NT SERVICE\VideoPortal-Worker`, `NT SERVICE\VideoPortal-Caddy` (virtual accounts, not LocalSystem).
+- `start-services.ps1`: all three `OK … started`. `status.ps1`: four services Running (incl. `postgresql-x64-18`), `/health` HTTP 200 `database: ok`, queue `pending 0, dead 0`, C: 25.6 GB free; one attention item: no backup yet.
+- **End-to-end through the installed services, running under the restricted virtual accounts**: `scripts/smoke_test.py --base-url https://<public IP> --insecure` with the real admin account -> **22/22 PASS**. Upload 0.39 s, processing 15.0 s for the 30 s 1280x720 clip, progress 24/48/76/99, output 3.23 MB, Range 206, tampered ticket 403, delete and sign-out verified. This exercises the NTFS grants for the API (storage write), the worker (storage, temporary folder, FFmpeg) and Caddy (config, data, logs). A first attempt failed at sign-in because the placeholder e-mail had not been replaced; no system fault.
+- The smoke test ran on the VPS against its own public IP. **Reachability from the Internet (provider firewall for 80/443) is not yet verified.**
+- Not verified yet: access from an outside machine; behaviour after a reboot (automatic start); service stop while encoding; scheduled tasks (`register-tasks.ps1` not run); backup on the VPS and any off-VPS copy; the ten reference clips; load test; failure drill. Windows Firewall remains disabled (owner relies on the provider firewall, whose rules I have not seen).
+
+### 2026-11-18 — UI redesign and account management (owner request after first use on the VPS)
+Owner feedback: the interface was plain, playback was hard to find after upload, only the CLI could create accounts, and the navigation was too thin.
+- **Interface rewritten** (`app/templates/index.html`, `app/static/portal.css`, `app/static/portal.js`): space theme with an animated starfield canvas (twinkling stars, occasional meteor), drifting nebula glows, an orbiting "planet" hero, glass panels; one section visible at a time through hash routing. Sidebar grouped as Khám phá (Tổng quan), Video (Thư viện, Tải video lên), Tài khoản (Tài khoản của tôi, Quản lý người dùng for admins), Trợ giúp (Giới thiệu, Hướng dẫn). `prefers-reduced-motion` is respected; no inline styles or scripts, no external fonts or assets (CSP unchanged). Vanilla JS only, DOM built with `textContent` (no `innerHTML`).
+- **Viewing fixed**: library is a card grid with real thumbnails; clicking a READY card opens a modal player straight away; the library polls every 2.5 s while anything is queued or processing and shows measured progress; the player renews the 2-minute playback link and resumes at the same position.
+- **Upload**: drag-and-drop, real upload percentage (XMLHttpRequest progress), a five-step tracker that follows the video to READY on the same page and then offers "Xem ngay"; failed videos show the reason (for example longer than 30 seconds).
+- **Accounts**: new `app/accounts.py` API (see API_CONTRACT) and an admin page to create accounts, reset passwords and disable/enable users; every user can change their own password. Backend enforces admin rights; no public sign-up; an admin cannot disable themselves.
+- Tests: `RUN_DB_TESTS=1 pytest -q` -> **129 passed, 6 skipped** (Docker-only). Three new tests cover the account API (admin-only, validation, session revocation, self-disable refusal, absent under the Firebase provider, own password change). One existing new-file test was made independent of a dev `.env` that sets `FFPROBE_BIN`. `node --check app/static/portal.js` PASS.
+- Browser verification on the dev server (real PostgreSQL, worker and FFmpeg): sign-in; library with thumbnail; modal player 854x480, 30 s, seek to 18 s; upload of a real MP4 through the page with tracker states create/send/queue/process (29 %, 66 %)/ready and the "Xem ngay" button; user creation, duplicate refusal, disable (sign-in then 401), self-disable button inactive; help pages; no application console errors. Narrow layout: no horizontal overflow at 375 px and the menu button appears, but the embedded browser froze CSS animations in its emulated mobile viewport, so the mobile look was **not visually confirmed**; entrance animations were changed to move-only so content stays readable if an animation never runs.
+- Not verified: other browsers (only the embedded Chromium), real phones, the new interface on the VPS (not deployed there yet).
+
+### 2026-11-20 — Deployment target changed to AWS (design and plan only)
+Owner re-read the brief, has an AWS account, and chose **full migration to AWS** over a hybrid or database-only move. Work was done in `C:\VideoPortal-update-v3` on the VPS machine itself; the running VPS deployment in `C:\VideoPortal` was not touched (services `VideoPortal-API/Worker/Caddy` and `postgresql-x64-18` observed Running, read-only check).
+- Brief re-checked: the PDF in the owner's Downloads folder has the same SHA-256 as `references/10_video_upload_and_processing_portal.pdf`. No PDF renderer on this machine; text was extracted with a small script and is partly garbled by the font encoding, so `docs/REQUIREMENTS.md` remains the readable checklist. The AWS row (ALB, ECS on Fargate API, RDS for PostgreSQL, S3, SQS, Lambda or Fargate workers, Cognito) was legible.
+- Documents only: new `docs/AWS_ARCHITECTURE.md`; ADR-021; `docs/PHASES.md` phases 07–13 rewritten for AWS with the VPS phases archived; `AGENTS.md` deployment target; `docs/REQUIREMENTS.md` provider line; seven `prompts/*-AWS-*.md`; ARCHIVED banners on the two VPS prompts and on `docs/WINDOWS_VPS_ARCHITECTURE.md`.
+- **No application code changed, no test run, no AWS resource created, no AWS call made.** Nothing here is evidence of a working AWS deployment.
+- BLOCKED / open (owner input needed, see the table in `docs/AWS_ARCHITECTURE.md`): account type (owner answered "not sure"; run the read-only check commands in CloudShell and paste the output), region, domain name, where images are built, GitHub repository, budget.
+- Tooling on this machine: AWS CLI, Docker, Terraform and Git are **not installed**. Phase 07 (adapters with stubs) needs none of them; phases 08+ need Terraform and AWS access somewhere (CloudShell is an option).
+- Git: `C:\VideoPortal-update-v3` is not a git repository and `git` is not installed, so nothing was committed or pushed. Next command once Git is available and the owner names the remote: `git init`, or clone the existing repository and copy this tree over it.
+- Not updated yet (still describe GCP or the VPS): `docs/SECURITY.md`, `docs/PIPELINE_RELIABILITY.md`, `docs/API_CONTRACT.md`, `docs/TEST_PLAN.md`, `docs/COST_MONITORING.md`, `README.md`. They are to be brought in line in the phase that changes the matching code.
+
+#### Next phase
+`prompts/07-AWS-ADAPTERS.md`. Do not start it without a new request.
+
+### 2026-11-20 — Phase 07 (AWS adapters, local only): code and tests done; images not built
+Owner asked to start Phase 07. Scope: `prompts/07-AWS-ADAPTERS.md`. **No AWS resource was created and no request was sent to AWS.** The running VPS deployment in `C:\VideoPortal` was not changed.
+
+#### Completed files
+- New: `app/storage_s3.py` (`S3Storage`: presigned POST upload, presigned GET pinned to VersionId, `head`, `download`, `write`, `delete` of every version, `old_objects`), `app/queue_sqs.py` (`SqsBroker`: `publish/receive/ack/dead_letter`, `extend`, `counts`), `app/auth_oidc.py` (Cognito ID-token verification through JWKS), `deploy/aws/Dockerfile` (+ `.dockerignore`; targets `api` and `worker`), `tests/test_aws_adapters.py`.
+- Changed: `app/main.py` (settings `STORAGE_BACKEND`, `QUEUE_BACKEND`, `AWS_REGION`, `S3_BUCKET`, `SQS_*`, `COGNITO_*`; startup validation; CSP built from the backends in use; 503 `storage_unavailable`), `app/storage.py` (`upload_target`, `read_url`, `StorageUnavailable`, backend factory), `app/videos.py` (uses the two new storage methods; `/local-storage/*` is 404 with S3; honest `null` in `/api/monitor`), `app/pipeline.py` (`fetch_source`, queue heartbeat hook), `app/maintenance.py` (S3 cleanup), `app/queue_pg.py` + `app/worker_service.py` + `app/admin_cli.py` (`make_broker`), `app/auth.py` (Cognito provider), `app/serve.py` (`TRUSTED_PROXY`), `app/static/portal.js` (Cognito sign-in, S3 form upload), `requirements.txt` (`boto3==1.44.7`, `PyJWT[crypto]==2.15.1`).
+- Docs: ADR-022; AWS sections appended to `docs/API_CONTRACT.md`, `docs/SECURITY.md`, `docs/PIPELINE_RELIABILITY.md`; container configuration and IAM needs in `docs/AWS_ARCHITECTURE.md`.
+
+#### Commands and results (this machine: Windows Server 2022, Python 3.12.0, PostgreSQL 18.7 binaries, FFmpeg from `C:\VideoPortal\tools`)
+- Test database: a **throwaway PostgreSQL cluster** created with `initdb` in the session's temp folder, loopback port 55432, random password, started as a normal process (no service). The production cluster on 5432 was not used. New project virtualenv `.venv` (gitignored) with `pip install -r requirements-dev.txt`; `pip check` -> `No broken requirements found.`
+- Baseline before any change: `RUN_DB_TESTS=1 pytest -q` -> **128 passed, 7 skipped**.
+- After the change: `RUN_DB_TESTS=1 pytest -q` -> **167 passed, 7 skipped** (the same 7: six need Docker, one needs `pg_dump` on PATH, deliberately not added so the backup script could not reach a real database). `tests/test_aws_adapters.py` alone -> 39 passed.
+- What the 39 new tests are: (1) real boto3 clients with dummy keys under botocore `Stubber` — operation names and parameters are validated against the AWS service models, and presigned URLs/policies are really generated offline; (2) an in-memory fake S3 driving the full API flow and one real FFmpeg transcode against real PostgreSQL; (3) RSA-signed test tokens for the verifier (wrong audience/issuer/key/algorithm, expired, access token, unverified e-mail, unreachable key set).
+- Page check in the embedded browser against a local server on port 8011 (local mode, test cluster): script loads with no console error; sign-in; upload of a 2 KB dummy file -> `POST /api/videos` 201, `PUT /local-storage/upload` 201, `complete` 202, tracker at "Xếp hàng". The S3 form branch was called once against a local URL: it sent a multipart POST and reported the failure cleanly. `node` is not installed, so there was no `node --check`.
+
+#### Not verified / BLOCKED
+- **Everything that needs AWS**: real S3 (presigned POST accepted, CORS, versioning), real SQS (redrive, visibility), real Cognito (`InitiateAuth` from the browser, token claims — in particular that `email_verified` arrives as a boolean), IAM permissions, RDS. Cause: no AWS access and out of scope for this phase. Next: Phase 08 preflight.
+- **Container images not built** (`deploy/aws/Dockerfile` is unexecuted): Docker is not installed on this machine. Next command, on a machine with Docker: `docker build -f deploy/aws/Dockerfile --target worker -t video-portal-worker .` then the same with `--target api`.
+- The Cognito sign-in branch and a successful S3 upload from the page were not exercised (no Cognito, no S3).
+- `scripts/smoke_test.py` still uploads with PUT only; it needs an S3 branch before it can be used in Phase 09. The seed command still points seeded videos at local files (`local-seed/`), which a Fargate worker will not have; Phase 09 must upload the ten clips through the API or S3.
+- Git: still no repository and no `git` on this machine; nothing committed or pushed.
+
+#### Leftovers on this machine
+`C:\VideoPortal-update-v3\.venv` (kept for the next phases). The temporary cluster, its data and the dev-server files are in the session temp folder; the cluster was stopped at the end of the session.
+
+#### Next phase
+`prompts/08-AWS-TERRAFORM-PREFLIGHT.md`. Needs from the owner first: account type (output of the read-only check commands), region, domain or not, where images are built, budget. Do not start it without a new request.
+
+### 2026-11-20 — AWS account looked at (read-only, before Phase 08)
+The owner signed in to the AWS Console in the embedded browser themselves; I only read pages. Nothing was created, changed or deleted, and no credential was typed by me.
+- Personal account on the **Free plan**: account menu shows `Credits remaining $180 USD` and `Days remaining 182 days`. Not an AWS Academy Learner Lab.
+- Console region: `ap-southeast-2` (Sydney).
+- **CloudShell unavailable**: "Your account verification is in progress. This may take up to two days for new accounts." The read-only CLI checks could therefore not be run.
+- RDS console (`ap-southeast-2`): 0 databases. ECS and Cognito consoles open; no user pool exists.
+- IAM and EC2 consoles did not load in the embedded browser ("Unable to load content"), so the sign-in type (root or IAM user), IAM permissions and any running EC2 instances are **not verified**.
+- Not verified: which services of the design the Free plan allows; whether resources can be created while verification is pending; anything in other regions.
+- Recorded in `docs/AWS_ARCHITECTURE.md` (open-points table and "Tài khoản AWS đã kiểm tra"). Account ID, user name and e-mail are deliberately not written to the repository.
+- Still open for Phase 08: domain or CloudFront, where images are built, GitHub repository, how Terraform gets credentials.
+- **Region decided by the owner (2026-11-20): `ap-southeast-1` (Singapore).** Prices and service availability there are not looked up yet.
+- **Owner has a domain name (2026-11-20):** HTTPS will be an ACM certificate on the ALB, no CloudFront. The owner later gave the site address `video.uploadmdm.id.vn`; its DNS is managed at the registrar (outside AWS).
+
+### 2026-11-20 — Phase 08 (AWS preflight + Terraform): written and validated; `plan` BLOCKED
+Owner asked to start Phase 08. Scope: `prompts/08-AWS-TERRAFORM-PREFLIGHT.md`. **Nothing was applied; no AWS resource exists; no AWS API was called with credentials.**
+
+#### Completed files
+`infra/aws/`: `versions.tf`, `variables.tf`, `network.tf`, `alb.tf`, `ecs.tf`, `data.tf`, `auth.tf`, `iam.tf`, `outputs.tf`, `terraform.tfvars.example`, `README.md`, `.terraform.lock.hcl`. 48 `resource` blocks and 7 `data` blocks (the exact planned resource count is unknown until `plan` runs). ADR-023; cost and domain notes in `docs/AWS_ARCHITECTURE.md`; `.tools/` added to `.gitignore`.
+
+#### Commands and results
+- Terraform 1.17.2 for Windows downloaded from `releases.hashicorp.com` (36.9 MB) into `.tools\terraform` (gitignored) with the owner's go-ahead; SHA-256 matched the published `SHA256SUMS` value (`2244b7a3…53024`). Not installed system-wide.
+- `terraform fmt` -> no changes. `terraform init` -> `hashicorp/aws v6.73.0`, `hashicorp/random v3.9.1` (both "signed by HashiCorp"). `terraform validate` -> **`Success! The configuration is valid.`**
+- `terraform plan -var domain_name=…` -> **failed as expected: no credentials** (`failed to refresh cached credentials, no EC2 IMDS role found`). No state file was created.
+- Prices read from the public AWS Price List CSV for `ap-southeast-1` (publication dates 2026-11-11 to 2026-11-19): Fargate 0.05056 USD/vCPU-hour and 0.00553 USD/GB-hour; ALB 0.0252 USD/hour + 0.008 USD/LCU-hour; public IPv4 0.005 USD/hour; RDS `db.t4g.micro` Single-AZ PostgreSQL 0.025 USD/hour; gp3 0.138 USD/GB-month. Derived always-on figure for the design: about 0.147 USD/hour, about 110 USD/month, before S3/SQS/logs/secrets/ECR/backups/egress (not looked up). Itemised in `infra/aws/README.md`. An illustration, not a bill.
+
+#### Found while working
+- The VPS site is live on the same host name: `C:\VideoPortal\config\Caddyfile` serves `video.uploadmdm.id.vn`, and `https://video.uploadmdm.id.vn/health` answered 200 with a trusted certificate (the earlier entries in this file describe an IP-only self-signed setup; the owner changed that later). Pointing this name at AWS would take the VPS site off it. Read-only checks only; nothing on the VPS was changed.
+
+#### BLOCKED / not verified
+- **`terraform plan`**: needs AWS credentials. CloudShell is unavailable while the new account is being verified, and no CLI credentials exist on this machine. Next, in CloudShell once it opens: upload or clone the repository, then `cd infra/aws && terraform init && terraform plan -var domain_name=<name>`.
+- Whether the Free plan allows ALB, RDS, Fargate, Cognito and the rest; whether credits cover them; `db.t4g.micro` and PostgreSQL 17 availability in the region; every IAM policy; Cognito schema settings (immutable e-mail). All of these can only fail or pass at `plan`/`apply`.
+- Sign-in type of the account (root or IAM user) is still unknown.
+- Git: still no repository and no `git`; nothing committed or pushed.
+
+#### Open decisions for the owner before Phase 09
+1. ~~Host name for the AWS deployment~~ **Decided by the owner (2026-11-20): reuse `video.uploadmdm.id.vn`**, i.e. a DNS cut-over from the VPS (a separate sub-domain had been recommended). Cut-over and rollback steps are planned in `docs/AWS_ARCHITECTURE.md`; nothing was changed in DNS. `infra/aws/terraform.tfvars` (gitignored) now holds the domain and region; `terraform validate` was not re-run because no `.tf` file changed.
+2. GitHub repository (needed to build the images, since this machine has no Docker).
+3. Budget: how many days the stack may stay up, given about 110 USD/month always-on against 180 USD of credit.
+
+#### Git (2026-11-20, later the same day)
+- MinGit 2.56.1 (38 MB) downloaded from the official Git for Windows release into `.tools\git` (gitignored) with the owner's go-ahead; SHA-256 matched the published value (`4a92850b…dafd`). Not installed system-wide.
+- `git init -b main` in `C:\VideoPortal-update-v3` and `git add -A`: 186 files staged. Checked on the staged content: no `.env`, `*.tfvars`, state, `.terraform/`, `.tools/`, `.venv/` or key files; no AWS key, private key or GitHub token pattern; the AWS account ID and the VPS IP do not appear.
+- **Committed locally, not pushed.** The owner approved using their sign-in e-mail as the commit author (repository-local `user.email`; it becomes public when pushed). First commit on `main` of this new local repository holds the whole tree including phases 07–08; identity in `git log -1`. Not pushed because the owner has not given the repository URL. The existing GitHub repository's history has not been seen: before the first push it must be fetched and this work placed on top of it, never force-pushed. Exact next commands once the URL is known: `git remote add origin <url>`, `git fetch origin`, then inspect `origin/main` before deciding how to join the histories.
+
+#### Next phase
+`prompts/09-AWS-DEPLOY.md`, only after `plan` has run cleanly and the owner approves each paid step.

@@ -1,0 +1,2 @@
+# Phase 05 — Video worker
+Implement **only phase 05**. Read `docs/DATA_MODEL.md` and `docs/PIPELINE_RELIABILITY.md`; use `$video-job-reliability`. Dockerize minimal FFmpeg worker; ffprobe validates duration/type/dimensions, produce 480p H.264 MP4 and JPG, verify output bytes/duration, handle no-audio. Write real ffmpeg integration test and reject bad inputs. No Cloud Run deployment yet. Update PROGRESS.

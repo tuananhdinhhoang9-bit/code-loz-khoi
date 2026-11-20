@@ -1,0 +1,9 @@
+# Chỉ đưa mã chạy thật vào image; .env, test, tài liệu và dữ liệu local không bao giờ vào build context.
+**
+!requirements.txt
+!app/
+!app/**
+!worker/
+!worker/*.py
+**/__pycache__
+**/*.pyc

@@ -1,0 +1,2 @@
+# Phase 06 — Outbox + local queue tests
+Implement **only phase 06**. Read `docs/PIPELINE_RELIABILITY.md`; use `$video-job-reliability`. DB job+outbox same transaction, relay publishing abstraction, stable operation key, worker lease, staging output and bounded retries/reconcile. Use fake broker/local adapter for deterministic tests; simulate duplicate message and mid-run crash. Avoid Celery/Redis. Update PROGRESS with test evidence.

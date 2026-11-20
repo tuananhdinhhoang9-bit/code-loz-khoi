@@ -1,0 +1,2 @@
+# Phase 04 — Upload + portal UI
+Implement **only phase 04**. Read `docs/API_CONTRACT.md` and `docs/SECURITY.md`. Add a clean Jinja/CSS/vanilla-JS portal, upload create/complete flow, listing/status, permissions, and signed playback/thumbnail contracts. Keep GCS behind a small replaceable adapter for local tests. Use `$frontend-design` only for concise UI guidance. Prove forbidden user gets no URL. Update PROGRESS.

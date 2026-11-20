@@ -563,6 +563,11 @@ AWS CLI 2.41.2 (49 MB MSI from `awscli.amazonaws.com`, Authenticode signature Va
 - Authoritative servers (`ns1`/`ns2.dotvndns.vn`) return the validation CNAME with the expected value. Public resolver 1.1.1.1 sees it; 8.8.8.8 not yet. Certificate still `PENDING_VALIDATION` at the time of the check (minutes after the record was added).
 - **The same authoritative servers now return no record at all for `video.uploadmdm.id.vn` (A, CNAME, ANY -> only SOA).** Before this step the name resolved and served the VPS site. Most likely the existing `video` row was edited into the new record instead of a second row being added. This machine still reaches the site only through its own DNS cache; outside visitors lose the site as their caches expire (TTL was 3600 s).
 - I did not and cannot change DNS: it is in the owner's registrar account. Action for the owner: add the `video` A record back with the VPS address, and keep the validation CNAME as a separate row. Nothing on the VPS or on AWS was changed by this.
+
+#### DNS restored by the owner; certificate ISSUED
+- After the owner re-added the row: both authoritative servers and the public resolvers 8.8.8.8 and 1.1.1.1 return the `video` A record (TTL 3600) and the validation CNAME. The A record equals this VPS's public address. With the local DNS cache cleared, `https://video.uploadmdm.id.vn/health` -> HTTP 200 `database: ok` from the VPS.
+- **`aws acm list-certificates` -> `ISSUED`.** The certificate for `video.uploadmdm.id.vn` is ready for the load balancer. The validation CNAME must stay in DNS (ACM uses it for renewal).
+- How long outside visitors could not resolve the name while the A record was missing was not measured.
 2. Confirmation that the Free plan permits the RDS, ALB, Fargate and Cognito resources in `infra/aws/`.
 3. GitHub repository URL -> push, then a workflow to build and push the two images.
 4. Owner approval of the first paid `apply`, with the plan output and the cost table in front of them.

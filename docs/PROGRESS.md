@@ -597,6 +597,17 @@ Owner asked for three design directions first, picked A, and asked that backend,
 - Not verified: the live pages rendered in a browser after sign-in. The embedded browser still blocks the live site's static files (`ERR_BLOCKED_BY_CLIENT`), and I have no account on the live site. The same files were verified in a browser on the local copy (previous entry).
 - Rollback: copy the three files back from the backup folder and `Restart-Service VideoPortal-API`.
 - **GitHub push: BLOCKED on sign-in.** Before pushing, every commit was scanned (no key, token, AWS account ID, VPS address or ignored file in history). The remote's initial commit was joined with `git merge -s ours origin/main --allow-unrelated-histories` (remote commit kept as a parent, project tree kept, nothing overwritten). `git push -u origin main` then failed: `could not read Username for 'https://github.com': terminal prompts disabled` — this session cannot show the Git Credential Manager sign-in. Next command, run by the owner in a terminal so the sign-in window can open: `& "C:\VideoPortal-update-v3\.tools\git\cmd\git.exe" -C C:\VideoPortal-update-v3 push -u origin main`. Nothing is on GitHub yet beyond the original README commit.
+
+### 2026-11-21 — Pushed to GitHub; first CI runs; one Linux-only failure fixed
+- The owner ran the push and signed in. Verified: `git ls-remote origin refs/heads/main` equalled the local `main` (`2db91b9…`), 0 ahead / 0 behind. Later pushes from this session used the sign-in now stored on the machine; each was verified the same way.
+- GitHub Actions, workflow `ci` (first time the test suite ran on Linux, with a PostgreSQL 18 service and distribution FFmpeg):
+  - run 1 (`2db91b9`): **failure** in the test step. Job logs need a signed-in viewer, so the workflow was changed to publish failing test names as annotations (`8bd6d2d`).
+  - run 2 (`8bd6d2d`): **`1 failed, 168 passed, 10 skipped`** — `tests/test_windows_vps.py::test_pg_queue_concurrent_receivers_never_share_a_message`, `assert (4 == 5)`.
+  - Cause: `PgBroker.receive()` locked up to five rows and delivered the first, so a concurrent receiver could find every row locked and return nothing while messages were waiting. No message was ever delivered twice; the test also expected all five to be handed out within ten concurrent calls. Fix in `app/queue_pg.py`: lock exactly one row per attempt (exhausted messages are still marked dead in the same transaction, up to five per call).
+  - Locally after the fix: the test passed 15 of 15 repeated runs; full suite **172 passed, 7 skipped**.
+  - run 3 (`88b7857`): **success** — job `test` passed on Linux; job `images` skipped as designed (repository variable `AWS_ROLE_ARN` is not set yet). https://github.com/tuananhdinhhoang9-bit/code-loz-khoi/actions/runs/44785425103
+- The VPS still runs the earlier `queue_pg.py`; with its single worker the old behaviour only meant an occasional empty poll. Not redeployed.
+- Still not done in CI: image build (needs the AWS role), deploy and rollback (Phase 12).
 2. Confirmation that the Free plan permits the RDS, ALB, Fargate and Cognito resources in `infra/aws/`.
 3. GitHub repository URL -> push, then a workflow to build and push the two images.
 4. Owner approval of the first paid `apply`, with the plan output and the cost table in front of them.

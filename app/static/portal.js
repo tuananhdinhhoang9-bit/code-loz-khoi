@@ -54,72 +54,6 @@ const failures = {
   input_size_invalid: "Dung lượng file vượt quá giới hạn.",
 };
 
-// ---------- Nền sao ----------
-function startStarfield() {
-  const canvas = $("starfield");
-  const context = canvas.getContext("2d");
-  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let stars = [];
-  let meteor = null;
-  let frame = 0;
-  function resize() {
-    const ratio = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = window.innerWidth * ratio;
-    canvas.height = window.innerHeight * ratio;
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    const count = Math.min(260, Math.floor((window.innerWidth * window.innerHeight) / 5200));
-    stars = Array.from({ length: count }, () => ({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      size: Math.random() * 1.5 + 0.3,
-      speed: Math.random() * 0.12 + 0.02,
-      phase: Math.random() * Math.PI * 2,
-      tint: Math.random(),
-    }));
-  }
-  function draw() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    context.clearRect(0, 0, width, height);
-    frame += 1;
-    for (const star of stars) {
-      if (!still) {
-        star.x -= star.speed;
-        if (star.x < -2) star.x = width + 2;
-      }
-      const glow = 0.45 + 0.55 * Math.sin(frame * 0.02 + star.phase);
-      const color = star.tint > 0.85 ? "69, 227, 255" : star.tint > 0.7 ? "190, 170, 255" : "235, 240, 255";
-      context.fillStyle = `rgba(${color}, ${still ? 0.8 : glow})`;
-      context.beginPath();
-      context.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-      context.fill();
-    }
-    if (!still) {
-      if (!meteor && Math.random() < 0.004) meteor = { x: Math.random() * width * 0.8 + width * 0.2, y: -20, life: 0 };
-      if (meteor) {
-        meteor.x -= 9;
-        meteor.y += 5.5;
-        meteor.life += 1;
-        const trail = context.createLinearGradient(meteor.x, meteor.y, meteor.x + 110, meteor.y - 67);
-        trail.addColorStop(0, "rgba(255, 255, 255, 0.9)");
-        trail.addColorStop(1, "rgba(69, 227, 255, 0)");
-        context.strokeStyle = trail;
-        context.lineWidth = 1.6;
-        context.beginPath();
-        context.moveTo(meteor.x, meteor.y);
-        context.lineTo(meteor.x + 110, meteor.y - 67);
-        context.stroke();
-        if (meteor.life > 90) meteor = null;
-      }
-      if (!document.hidden) window.requestAnimationFrame(draw);
-    }
-  }
-  window.addEventListener("resize", () => { resize(); if (still) draw(); });
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && !still) window.requestAnimationFrame(draw); });
-  resize();
-  draw();
-}
-
 // ---------- Thông báo và gọi API ----------
 function say(text, isError = false) {
   const box = $("message");
@@ -207,8 +141,9 @@ function signOut(showMessage = true) {
   window.clearTimeout(pollTimer);
   closePlayer();
   $("password").value = "";
-  $("detail").hidden = true;
-  $("tracker").hidden = true;
+  $("tracker-panel").hidden = true;
+  $("search").value = "";
+  searchText = "";
   render();
   applyAuth();
   if (showMessage) say("Đã đăng xuất.");
@@ -297,12 +232,31 @@ $("password-form").addEventListener("submit", async (event) => {
   }
 });
 
-// ---------- Thư viện ----------
-function badge(state) {
-  const item = document.createElement("span");
-  item.className = "badge";
-  item.dataset.state = state;
-  item.textContent = labels[state] || state;
+// ---------- Thư viện và Tổng quan ----------
+let statusFilter = "all"; // all | ready | active | failed
+let ownerFilter = "all"; // all | mine
+let searchText = "";
+let lastRender = "";
+let detailShown = "";
+
+function clock(milliseconds) {
+  const seconds = Math.round(milliseconds / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+const sizeText = (bytes) => (bytes < 100_000 ? `${Math.max(1, Math.round(bytes / 1000))} KB` : (bytes / 1_000_000).toFixed(1).replace(".", ",") + " MB");
+function dateText(iso) {
+  const date = new Date(iso);
+  const two = (value) => String(value).padStart(2, "0");
+  return `${two(date.getDate())}/${two(date.getMonth() + 1)} ${two(date.getHours())}:${two(date.getMinutes())}`;
+}
+const ownerText = (video) => (video.owner_uid === user.uid ? "Của bạn" : "Chia sẻ bởi " + video.owner_uid);
+const waiting = (video) => ACTIVE.has(video.status) || video.status === "PENDING_UPLOAD";
+
+function setBadge(item, video) {
+  const percent = details.get(video.id)?.progress;
+  item.className = "st";
+  item.dataset.state = video.status;
+  item.textContent = (labels[video.status] || video.status) + (video.status === "PROCESSING" && Number.isInteger(percent) ? ` ${percent}%` : "");
   return item;
 }
 
@@ -317,88 +271,197 @@ function progressBar(video) {
   return bar;
 }
 
-async function thumbnailUrl(video) {
+// Lời gọi /thumbnail trả cả liên kết ảnh (sống 2 phút) lẫn thời lượng đã đo của video.
+async function thumbnailInfo(video) {
   const cached = thumbnails.get(video.id);
-  if (cached && Date.now() - cached.at < 100_000) return cached.url;
+  if (cached && Date.now() - cached.at < 100_000) return cached;
   const data = await api(`/api/videos/${video.id}/thumbnail`);
-  thumbnails.set(video.id, { url: data.url, at: Date.now() });
-  return data.url;
+  const info = { url: data.url, duration: data.duration_ms, at: Date.now() };
+  thumbnails.set(video.id, info);
+  return info;
+}
+const thumbnailUrl = async (video) => (await thumbnailInfo(video)).url;
+
+// Khung ảnh thu nhỏ 16:9. Video chưa sẵn sàng thì để khung xám trống, không vẽ ảnh giả.
+function thumb(video, onDuration) {
+  const box = document.createElement("span");
+  box.className = "thumb";
+  if (video.status !== "READY") return box;
+  const image = document.createElement("img");
+  image.alt = "";
+  image.addEventListener("error", () => image.remove());
+  box.append(image);
+  thumbnailInfo(video).then((info) => {
+    image.src = info.url;
+    if (info.duration == null) return;
+    const length = document.createElement("b");
+    length.textContent = clock(info.duration);
+    box.append(length);
+    if (onDuration) onDuration(length.textContent);
+  }).catch(() => image.remove());
+  return box;
 }
 
-function card(video) {
-  const item = document.createElement("li");
-  item.className = "card" + (video.id === selectedId ? " selected" : "");
-  item.dataset.state = video.status;
+function visibleVideos() {
+  return videos.filter((video) => {
+    if (statusFilter === "ready" && video.status !== "READY") return false;
+    if (statusFilter === "active" && !waiting(video)) return false;
+    if (statusFilter === "failed" && video.status !== "FAILED") return false;
+    if (ownerFilter === "mine" && video.owner_uid !== user.uid) return false;
+    return !searchText || video.title.toLowerCase().includes(searchText);
+  });
+}
 
-  const thumb = document.createElement("button");
-  thumb.type = "button";
-  thumb.className = "thumb";
-  thumb.setAttribute("aria-label", (video.status === "READY" ? "Xem video " : "Chi tiết video ") + video.title);
-  const icon = document.createElement("span");
-  icon.className = "thumb-icon";
-  icon.textContent = video.status === "FAILED" ? "✕" : "▶";
-  thumb.append(icon);
-  if (video.status === "READY") {
-    const image = document.createElement("img");
-    image.alt = "";
-    image.loading = "lazy";
-    image.addEventListener("error", () => image.remove());
-    thumbnailUrl(video).then((url) => { image.src = url; }).catch(() => image.remove());
-    const play = document.createElement("span");
-    play.className = "play-badge";
-    play.textContent = "▶";
-    thumb.append(image, play);
-  }
-  thumb.addEventListener("click", () => {
+function row(video) {
+  const line = document.createElement("tr");
+  line.dataset.id = video.id;
+  line.tabIndex = 0;
+  if (video.id === selectedId) line.className = "sel";
+  const cell = (...children) => { const item = document.createElement("td"); item.append(...children); line.append(item); return item; };
+
+  const duration = document.createElement("span");
+  duration.textContent = "–";
+  const picture = document.createElement("button");
+  picture.type = "button";
+  picture.className = "thumb-button";
+  picture.setAttribute("aria-label", (video.status === "READY" ? "Xem video " : "Chi tiết video ") + video.title);
+  picture.append(thumb(video, (value) => { duration.textContent = value; }));
+  picture.addEventListener("click", (event) => {
+    event.stopPropagation();
     select(video.id);
     if (video.status === "READY") openPlayer(video);
   });
-
-  const body = document.createElement("div");
-  body.className = "card-body";
+  const text = document.createElement("div");
   const title = document.createElement("strong");
-  title.className = "card-title";
   title.textContent = video.title;
-  const meta = document.createElement("span");
-  meta.className = "card-meta";
-  meta.textContent = video.owner_uid === user.uid ? "Của bạn" : "Chia sẻ bởi " + video.owner_uid;
-  const foot = document.createElement("div");
-  foot.className = "card-foot";
-  const more = document.createElement("button");
-  more.type = "button";
-  more.className = "link";
-  more.textContent = "Chi tiết";
-  more.addEventListener("click", () => select(video.id, true));
-  foot.append(badge(video.status), more);
-  body.append(title, meta, foot);
-  if (ACTIVE.has(video.status)) body.append(progressBar(video));
-  item.append(thumb, body);
+  const owner = document.createElement("small");
+  owner.textContent = ownerText(video);
+  text.append(title, owner);
+  const name = document.createElement("div");
+  name.className = "name";
+  name.append(picture, text);
+  cell(name);
+
+  const state = cell(setBadge(document.createElement("span"), video));
+  if (ACTIVE.has(video.status)) state.append(progressBar(video));
+  cell(duration);
+  cell(sizeText(video.size_bytes));
+  cell(dateText(video.created_at));
+  line.addEventListener("click", () => select(video.id, true));
+  line.addEventListener("keydown", (event) => { if (event.key === "Enter" && event.target === line) select(video.id, true); });
+  return line;
+}
+
+function emptyRow(text) {
+  const line = document.createElement("tr");
+  const item = document.createElement("td");
+  item.colSpan = 5;
+  item.className = "none";
+  item.textContent = text;
+  line.append(item);
+  return line;
+}
+
+// Một ô trong "Dòng xử lý": bấm vào thì mở video đó trong Thư viện.
+function job(video) {
+  const info = details.get(video.id) || {};
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = "job";
+  const title = document.createElement("strong");
+  title.textContent = video.title;
+  const meta = document.createElement("small");
+  if (video.status === "PROCESSING") meta.textContent = Number.isInteger(info.progress) ? `Đang chuyển mã, ${info.progress}%` : "Đang kiểm tra file";
+  else if (video.status === "RETRYING") meta.textContent = "Lần trước bị gián đoạn, đang thử lại";
+  else meta.textContent = `${sizeText(video.size_bytes)}, tải lên ${dateText(video.created_at)}`;
+  item.append(title, meta);
+  if (video.status === "PROCESSING") item.append(progressBar(video));
+  item.addEventListener("click", () => { window.location.hash = "#library"; select(video.id, true); });
   return item;
 }
 
-function render() {
-  const list = $("videos");
-  list.replaceChildren();
-  if (user && !videos.length) {
-    const empty = document.createElement("li");
-    empty.className = "empty";
-    const text = document.createElement("p");
-    text.textContent = "Thư viện còn trống. Tải video đầu tiên của bạn lên, hoặc nhờ người khác chia sẻ video cho bạn.";
-    const link = document.createElement("a");
-    link.className = "button";
-    link.href = "#upload";
-    link.textContent = "Tải video lên";
-    empty.append(text, link);
-    list.append(empty);
+function fillLane(name, list, emptyText, limit = 4) {
+  $("count-" + name).textContent = list.length;
+  const lane = $("lane-" + name);
+  lane.replaceChildren(...list.slice(0, limit).map(job));
+  if (!list.length) {
+    const none = document.createElement("p");
+    none.className = "none";
+    none.textContent = emptyText;
+    lane.append(none);
+  } else if (list.length > limit) {
+    const more = document.createElement("p");
+    more.className = "none";
+    more.textContent = `và ${list.length - limit} video khác`;
+    lane.append(more);
   }
-  if (user) for (const video of videos) list.append(card(video));
-  const count = (matches) => videos.filter((video) => matches(video.status)).length;
+}
+
+function fillRows(id, list, emptyText, describe) {
+  const items = list.slice(0, 5).map((video) => {
+    const item = document.createElement("li");
+    const text = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = video.title;
+    const note = document.createElement("small");
+    note.textContent = describe(video);
+    text.append(title, note);
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "link";
+    open.textContent = "Mở";
+    open.setAttribute("aria-label", "Mở video " + video.title);
+    open.addEventListener("click", () => { window.location.hash = "#library"; select(video.id, true); });
+    item.append(thumb(video), text, open);
+    return item;
+  });
+  if (!items.length) {
+    const none = document.createElement("li");
+    none.className = "none";
+    none.textContent = emptyText;
+    items.push(none);
+  }
+  $(id).replaceChildren(...items);
+}
+
+function render() {
+  const count = (matches) => videos.filter(matches).length;
   $("stat-total").textContent = user ? videos.length : "–";
-  $("stat-ready").textContent = user ? count((status) => status === "READY") : "–";
-  $("stat-active").textContent = user ? count((status) => ACTIVE.has(status)) : "–";
-  $("stat-failed").textContent = user ? count((status) => status === "FAILED") : "–";
+  $("stat-ready").textContent = user ? count((video) => video.status === "READY") : "–";
+  $("stat-active").textContent = user ? count(waiting) : "–";
+  $("stat-failed").textContent = user ? count((video) => video.status === "FAILED") : "–";
   $("nav-count").hidden = !user || !videos.length;
   $("nav-count").textContent = videos.length;
+  $("home-body").hidden = !user;
+  $("library-empty").hidden = !user || videos.length > 0;
+  $("library-body").hidden = !user || !videos.length;
+  if (!user) {
+    lastRender = "";
+    $("videos").replaceChildren();
+    fillDetail();
+    return;
+  }
+  // Chỉ dựng lại bảng khi dữ liệu thật sự đổi: tránh tải lại ảnh thu nhỏ mỗi lần trang tự hỏi trạng thái.
+  const signature = JSON.stringify([statusFilter, ownerFilter, searchText, videos.map((video) => [video.id, video.status, video.title, details.get(video.id)])]);
+  if (signature !== lastRender) {
+    lastRender = signature;
+    const shown = visibleVideos();
+    $("videos").replaceChildren(...(shown.length ? shown.map(row) : [emptyRow("Không có video nào khớp bộ lọc.")]));
+    for (const button of $("status-filter").children) {
+      const total = { all: videos.length, ready: count((video) => video.status === "READY"), active: count(waiting), failed: count((video) => video.status === "FAILED") }[button.dataset.filter];
+      button.textContent = `${button.dataset.label} ${total}`;
+      button.classList.toggle("on", button.dataset.filter === statusFilter);
+    }
+    for (const button of $("owner-filter").children) button.classList.toggle("on", button.dataset.owner === ownerFilter);
+
+    fillLane("pending", videos.filter((video) => video.status === "PENDING_UPLOAD"), "Không có lượt tải nào dang dở.");
+    fillLane("queued", videos.filter((video) => video.status === "QUEUED" || video.status === "RETRYING"), "Không có video nào đang chờ.");
+    fillLane("processing", videos.filter((video) => video.status === "PROCESSING"), "Máy chủ đang rảnh.");
+    fillLane("ready", videos.filter((video) => video.status === "READY"), "Chưa có video nào sẵn sàng.", 3);
+    fillRows("attention", videos.filter((video) => video.status === "FAILED"), "Không có video nào cần bạn xử lý.",
+      (video) => (failures[details.get(video.id)?.error] || "Máy chủ không xử lý được video này.") + " Hãy tải một file khác.");
+    fillRows("shared", videos.filter((video) => video.owner_uid !== user.uid), "Chưa ai chia sẻ video cho bạn.", ownerText);
+  }
   fillDetail();
 }
 
@@ -423,24 +486,32 @@ async function refresh() {
 
 function select(id, scroll = false) {
   selectedId = id;
-  document.querySelectorAll("#videos .card").forEach((item, index) => item.classList.toggle("selected", videos[index]?.id === id));
+  document.querySelectorAll("#videos tr[data-id]").forEach((line) => line.classList.toggle("sel", line.dataset.id === id));
   fillDetail();
-  if (scroll) $("detail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  // Trên màn hình hẹp khung chi tiết nằm dưới bảng nên phải cuộn tới.
+  if (scroll && window.matchMedia("(max-width: 1100px)").matches) $("detail").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function fillDetail() {
-  const video = videos.find((item) => item.id === selectedId);
+  const video = user && videos.find((item) => item.id === selectedId);
   $("detail").hidden = !video;
-  if (!video) return;
+  $("library-split").classList.toggle("has-detail", Boolean(video));
+  if (!video) {
+    detailShown = "";
+    return;
+  }
   const mine = video.owner_uid === user.uid;
   const info = details.get(video.id) || {};
+  if (detailShown !== video.id + video.status) {
+    detailShown = video.id + video.status;
+    $("detail-duration").textContent = "–";
+    $("detail-thumb").replaceChildren(thumb(video, (value) => { $("detail-duration").textContent = value; }));
+  }
   $("detail-title").textContent = video.title;
-  const created = new Date(video.created_at).toLocaleString("vi-VN");
-  const size = (video.size_bytes / 1_000_000).toFixed(1) + " MB";
-  $("detail-meta").textContent = `${mine ? "Của bạn" : "Chia sẻ bởi " + video.owner_uid}, tải lên ${created}, file gốc ${size}`;
-  const status = $("video-status");
-  status.dataset.state = video.status;
-  status.textContent = labels[video.status] || video.status;
+  setBadge($("video-status"), video);
+  $("detail-owner").textContent = mine ? "Bạn" : video.owner_uid;
+  $("detail-size").textContent = sizeText(video.size_bytes);
+  $("detail-created").textContent = new Date(video.created_at).toLocaleString("vi-VN");
   const bar = $("detail-progress");
   bar.hidden = !ACTIVE.has(video.status);
   bar.classList.toggle("busy", !(video.status === "PROCESSING" && Number.isInteger(info.progress)));
@@ -452,10 +523,27 @@ function fillDetail() {
   else if (video.status === "FAILED") note = (failures[info.error] || "Máy chủ không xử lý được video này.") + " Hãy tải một file khác.";
   else if (video.status === "PENDING_UPLOAD") note = "File chưa được tải lên xong.";
   $("detail-note").textContent = note;
+  $("detail-note").hidden = !note;
   $("play").disabled = video.status !== "READY";
   $("delete-video").hidden = !mine;
   $("permission-form").hidden = !mine;
 }
+
+$("status-filter").addEventListener("click", (event) => {
+  if (!event.target.dataset.filter) return;
+  statusFilter = event.target.dataset.filter;
+  render();
+});
+$("owner-filter").addEventListener("click", (event) => {
+  if (!event.target.dataset.owner) return;
+  ownerFilter = event.target.dataset.owner;
+  render();
+});
+$("search").addEventListener("input", () => {
+  searchText = $("search").value.trim().toLowerCase();
+  if (user && window.location.hash !== "#library") window.location.hash = "#library";
+  render();
+});
 
 $("refresh").addEventListener("click", async () => {
   try {
@@ -566,7 +654,7 @@ document.addEventListener("keydown", (event) => { if (event.key === "Escape" && 
 function track(step, failed = false) {
   const order = ["create", "send", "queue", "process", "ready"];
   const index = order.indexOf(step);
-  $("tracker").hidden = false;
+  $("tracker-panel").hidden = false;
   document.querySelectorAll("#tracker li").forEach((item, position) => {
     item.className = position < index ? "done" : position === index ? (failed ? "failed" : step === "ready" ? "done" : "active") : "";
   });
@@ -682,7 +770,7 @@ $("upload-form").addEventListener("submit", async (event) => {
   } catch (error) {
     bar.hidden = true;
     note.textContent = "";
-    $("tracker").hidden = true;
+    $("tracker-panel").hidden = true;
     say(error.message, true);
   } finally {
     $("upload-button").disabled = false;
@@ -778,7 +866,6 @@ fetch("/api/config")
     applyAuth();
   })
   .catch(() => {});
-startStarfield();
 applyAuth();
 render();
 route();

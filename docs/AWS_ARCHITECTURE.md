@@ -76,7 +76,7 @@ Không có access key nào trong cấu hình: boto3 lấy quyền từ task role
 | Việc | Vì sao cần | Chốt ở |
 | --- | --- | --- |
 | ~~Loại tài khoản AWS~~ | **Đã rõ 2026-11-20** (xem mục "Tài khoản AWS đã kiểm tra" bên dưới): tài khoản cá nhân, gói Free plan có credit, không phải Learner Lab | — |
-| **Region (mở lại 2026-11-20)** | Chủ dự án đã chọn `ap-southeast-1` (Singapore), nhưng khi đăng nhập bằng `aws login --region ap-southeast-1` trang đăng nhập của AWS báo: "You're trying to log into an AWS Region that's not supported for your project. Project Fresh Deploy is set up in ap-southeast-2… use `aws login --region ap-southeast-2`". Tài khoản là một "project" gắn với Sydney; chưa biết có thêm được region khác trong AWS Settings hay không (trang Settings không tải được trong trình duyệt nhúng). Nếu không thêm được thì phải chuyển toàn bộ sang `ap-southeast-2` và tra lại giá | Trước `terraform plan` |
+| ~~Region~~ | **Đã chốt lại 2026-11-20: `ap-southeast-2` (Sydney)**, chủ dự án đồng ý sau phát hiện dưới đây. Trước đó chủ dự án đã chọn `ap-southeast-1` (Singapore), nhưng khi đăng nhập bằng `aws login --region ap-southeast-1` trang đăng nhập của AWS báo: "You're trying to log into an AWS Region that's not supported for your project. Project Fresh Deploy is set up in ap-southeast-2… use `aws login --region ap-southeast-2`". Tài khoản là một "project" gắn với Sydney; chưa biết có thêm được region khác trong AWS Settings hay không (trang Settings không tải được trong trình duyệt nhúng). Đánh đổi: xa Việt Nam hơn Singapore nên độ trễ cao hơn; chưa đo | — |
 | Tài khoản mới đang được AWS xác minh | CloudShell báo "account verification is in progress… up to two days"; một số dịch vụ có thể cũng chưa tạo được | Thử lại trước khi `plan`/`apply` |
 | Giới hạn của gói Free plan | Chưa biết dịch vụ nào trong thiết kế (ALB, RDS, Fargate, NAT…) bị gói này hạn chế; credit và thời hạn là trần chi tiêu thực tế | Phase 08, bằng `terraform plan` và trang Billing |
 | Cách cấp quyền cho Terraform | CloudShell chưa dùng được; chưa biết đăng nhập bằng root hay IAM user. Không dùng access key của root | Phase 08 |
@@ -122,7 +122,7 @@ Dán kết quả lại (không dán access key). `LabRole` tồn tại và ARN n
 
 ## Chi phí
 
-Ước tính sơ bộ từ giá On-Demand tra ngày 2026-11-20 (AWS Price List, `ap-southeast-1`), bảng đầy đủ ở `infra/aws/README.md`: ALB, RDS `db.t4g.micro` + 20 GB, task `api`, task `worker` và 4 địa chỉ IPv4 public chạy liên tục tốn **khoảng 0,147 USD/giờ, tức khoảng 110 USD/tháng**; riêng task worker chiếm khoảng 45 USD. Chưa tính S3, SQS, CloudWatch, Secrets Manager, ECR, sao lưu và lưu lượng ra Internet (chưa tra giá). Tài khoản có 180 USD credit trên gói Free plan: chưa xác minh credit áp dụng cho những dịch vụ nào. Đây là công thức minh hoạ, không phải hoá đơn; bảng ước tính theo tải thực tế vẫn thuộc Phase 11.
+Ước tính sơ bộ từ giá On-Demand tra ngày 2026-11-20 (AWS Price List, `ap-southeast-2`), bảng đầy đủ ở `infra/aws/README.md`: ALB, RDS `db.t4g.micro` + 20 GB, task `api`, task `worker` và 4 địa chỉ IPv4 public chạy liên tục tốn **khoảng 0,144 USD/giờ, tức khoảng 108 USD/tháng**; riêng task worker chiếm khoảng 43 USD. Chưa tính S3, SQS, CloudWatch, Secrets Manager, ECR, sao lưu và lưu lượng ra Internet (chưa tra giá). Tài khoản có 180 USD credit trên gói Free plan: chưa xác minh credit áp dụng cho những dịch vụ nào. Đây là công thức minh hoạ, không phải hoá đơn; bảng ước tính theo tải thực tế vẫn thuộc Phase 11.
 
 ## Miền lỗi
 

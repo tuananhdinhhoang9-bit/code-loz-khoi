@@ -535,8 +535,13 @@ AWS CLI 2.41.2 (49 MB MSI from `awscli.amazonaws.com`, Authenticode signature Va
 - Consequence: the owner's choice of Singapore may not be possible with this account. Not verified: whether more regions can be enabled for the project (the AWS Settings page did not load in the embedded browser), and whether resources — not just sign-in — are restricted to the project's region. The Terraform default and the cost table are still for `ap-southeast-1` and must be redone if the region changes.
 - No credentials were obtained, nothing was created.
 
+#### Region changed to Sydney (owner decision, same day)
+- Owner agreed to `ap-southeast-2`. `infra/aws/variables.tf` default, `terraform.tfvars` and the example now use it; `terraform fmt -check` clean, `terraform validate` -> `Success! The configuration is valid.`
+- Sydney prices from the public AWS Price List (published 2026-11-11 to 2026-11-19): Fargate 0.04856 USD/vCPU-hour and 0.00532 USD/GB-hour; ALB 0.0252 USD/hour; public IPv4 0.005 USD/hour; RDS `db.t4g.micro` 0.025 USD/hour; gp3 0.138 USD/GB-month. Always-on illustration for the design: about 0.144 USD/hour, about 108 USD/month, before S3/SQS/logs/secrets/ECR/backups/egress. Table in `infra/aws/README.md`.
+- `aws sts get-caller-identity --region ap-southeast-2` -> still `NoCredentials`: the owner has not yet re-run the sign-in for Sydney.
+
 #### Still BLOCKED for Phase 09
-1. Region decision (see above), then command-line AWS credentials via `aws login --region <supported region>` -> then `terraform plan`.
+1. Owner runs `aws login --region ap-southeast-2` and selects their session -> then `terraform plan`.
 2. Confirmation that the Free plan permits the RDS, ALB, Fargate and Cognito resources in `infra/aws/`.
 3. GitHub repository URL -> push, then a workflow to build and push the two images.
 4. Owner approval of the first paid `apply`, with the plan output and the cost table in front of them.

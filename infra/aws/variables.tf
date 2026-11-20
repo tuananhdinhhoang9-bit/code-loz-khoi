@@ -1,7 +1,7 @@
 variable "region" {
-  description = "Region cho mọi tài nguyên. Chủ dự án chọn Singapore ngày 2026-11-20."
+  description = "Region cho mọi tài nguyên. Tài khoản AWS của dự án là một project đặt ở Sydney và từ chối Singapore (2026-11-20)."
   type        = string
-  default     = "ap-southeast-1"
+  default     = "ap-southeast-2"
 }
 
 variable "project" {

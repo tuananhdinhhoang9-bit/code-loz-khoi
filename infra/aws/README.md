@@ -17,7 +17,8 @@
 
 1. Cần quyền AWS ở dòng lệnh. Dùng AWS CloudShell (đã đăng nhập sẵn) hoặc đăng nhập SSO; **không** tạo access key cho tài khoản root và không ghi key vào file nào.
 2. `cp terraform.tfvars.example terraform.tfvars` rồi điền `domain_name`.
-3. Chưa kiểm chứng (kiểm tra ở bước `plan`/`apply`): gói Free plan có cho tạo các dịch vụ này không; `db.t4g.micro` và PostgreSQL `17` có ở `ap-southeast-1` không; tài khoản đã qua bước xác minh chưa.
+3. Region là `ap-southeast-2` (Sydney): tài khoản AWS của dự án là một "project" đặt ở đó và từ chối đăng nhập vào Singapore. Đăng nhập dòng lệnh: `aws login --region ap-southeast-2`.
+4. Chưa kiểm chứng (kiểm tra ở bước `plan`/`apply`): gói Free plan có cho tạo các dịch vụ này không; `db.t4g.micro` và PostgreSQL `17` có ở region không; tài khoản đã qua bước xác minh chưa.
 
 ## Trình tự (mỗi lệnh `apply` phải được chủ dự án đồng ý trước)
 
@@ -42,17 +43,19 @@ terraform output alb_dns_name       # -> bản ghi CNAME của tên miền con
 
 Hai service bắt đầu với `desired_count = 0` vì ECR còn trống; không có task nào chạy (và tính tiền) cho đến bước 3.
 
-## Chi phí (giá On-Demand tại `ap-southeast-1`, AWS Price List công bố 2026-11-11 đến 2026-11-19, tra ngày 2026-11-20)
+## Chi phí (giá On-Demand tại `ap-southeast-2` Sydney, AWS Price List công bố 2026-11-11 đến 2026-11-19, tra ngày 2026-11-20)
 
 | Thành phần | Đơn giá | Chạy liên tục 730 giờ/tháng |
 | --- | --- | --- |
 | ALB | 0,0252 USD/giờ (+ 0,008 USD mỗi LCU-giờ) | 18,40 USD + LCU |
 | RDS `db.t4g.micro` Single-AZ | 0,025 USD/giờ | 18,25 USD |
 | RDS lưu trữ gp3 20 GB | 0,138 USD/GB-tháng | 2,76 USD |
-| Task `api` 0,25 vCPU + 0,5 GB | 0,05056 USD/vCPU-giờ, 0,00553 USD/GB-giờ | 11,25 USD |
-| Task `worker` 1 vCPU + 2 GB | như trên | 44,98 USD |
+| Task `api` 0,25 vCPU + 0,5 GB | 0,04856 USD/vCPU-giờ, 0,00532 USD/GB-giờ | 10,80 USD |
+| Task `worker` 1 vCPU + 2 GB | như trên | 43,22 USD |
 | 4 địa chỉ IPv4 public (2 của ALB, 2 của task) | 0,005 USD/giờ mỗi địa chỉ | 14,60 USD |
-| **Cộng các mục trên** | khoảng 0,147 USD/giờ | **khoảng 110 USD/tháng** |
+| **Cộng các mục trên** | khoảng 0,144 USD/giờ | **khoảng 108 USD/tháng** |
+
+(Bảng trước đó tính cho Singapore: Fargate 0,05056 và 0,00553 USD, tổng khoảng 110 USD/tháng; các đơn giá còn lại giống nhau ở hai region.)
 
 Chưa tính (chưa tra giá, dự kiến nhỏ với tải demo): S3, SQS, CloudWatch Logs, Secrets Manager, ECR, bản sao lưu RDS, lưu lượng ra Internet, LCU của ALB. Số liệu trên là công thức minh hoạ, không phải hoá đơn; tính lại bằng [AWS Pricing Calculator](https://calculator.aws/) trước khi `apply`. Cảnh báo ngân sách không phải là trần chi tiêu.
 

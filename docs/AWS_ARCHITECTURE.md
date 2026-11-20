@@ -76,7 +76,7 @@ Không có access key nào trong cấu hình: boto3 lấy quyền từ task role
 | Việc | Vì sao cần | Chốt ở |
 | --- | --- | --- |
 | ~~Loại tài khoản AWS~~ | **Đã rõ 2026-11-20** (xem mục "Tài khoản AWS đã kiểm tra" bên dưới): tài khoản cá nhân, gói Free plan có credit, không phải Learner Lab | — |
-| ~~Region~~ | **Đã chốt 2026-11-20: `ap-southeast-1` (Singapore)**, chủ dự án chọn vì gần Việt Nam. Console của tài khoản đang mở ở `ap-southeast-2`: phải đổi region trước khi xem tài nguyên. Giá và dịch vụ khả dụng ở Singapore chưa được tra | — |
+| **Region (mở lại 2026-11-20)** | Chủ dự án đã chọn `ap-southeast-1` (Singapore), nhưng khi đăng nhập bằng `aws login --region ap-southeast-1` trang đăng nhập của AWS báo: "You're trying to log into an AWS Region that's not supported for your project. Project Fresh Deploy is set up in ap-southeast-2… use `aws login --region ap-southeast-2`". Tài khoản là một "project" gắn với Sydney; chưa biết có thêm được region khác trong AWS Settings hay không (trang Settings không tải được trong trình duyệt nhúng). Nếu không thêm được thì phải chuyển toàn bộ sang `ap-southeast-2` và tra lại giá | Trước `terraform plan` |
 | Tài khoản mới đang được AWS xác minh | CloudShell báo "account verification is in progress… up to two days"; một số dịch vụ có thể cũng chưa tạo được | Thử lại trước khi `plan`/`apply` |
 | Giới hạn của gói Free plan | Chưa biết dịch vụ nào trong thiết kế (ALB, RDS, Fargate, NAT…) bị gói này hạn chế; credit và thời hạn là trần chi tiêu thực tế | Phase 08, bằng `terraform plan` và trang Billing |
 | Cách cấp quyền cho Terraform | CloudShell chưa dùng được; chưa biết đăng nhập bằng root hay IAM user. Không dùng access key của root | Phase 08 |

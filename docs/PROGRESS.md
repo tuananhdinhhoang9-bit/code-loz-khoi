@@ -529,8 +529,14 @@ Owner asked to continue with Phase 09 (`prompts/09-AWS-DEPLOY.md`). **Nothing wa
 #### AWS CLI (later the same day)
 AWS CLI 2.41.2 (49 MB MSI from `awscli.amazonaws.com`, Authenticode signature Valid, signer "Amazon Web Services, Inc.") was unpacked with `msiexec /a` into `.tools\awscli` (gitignored) with the owner's go-ahead. It is **not installed system-wide** (not on PATH, no registry entries). No credentials are configured: the owner still has to run `aws login` and sign in in their own browser. No long-lived access key is to be created.
 
+#### `aws login` attempt: region not supported for the project
+- The owner ran `aws login --region ap-southeast-1` in the app's terminal and selected their session in the browser. The command never completed (no "Updated profile" line; `aws sts get-caller-identity` -> `NoCredentials`).
+- Cause, read from the AWS sign-in page: **"You're trying to log into an AWS Region that's not supported for your project. Project Fresh Deploy is set up in ap-southeast-2. To fix this, use the following command: `aws login --region ap-southeast-2`."** The account is a "project" bound to Sydney. This also explains the different CloudShell error in `ap-southeast-1` ("System error").
+- Consequence: the owner's choice of Singapore may not be possible with this account. Not verified: whether more regions can be enabled for the project (the AWS Settings page did not load in the embedded browser), and whether resources — not just sign-in — are restricted to the project's region. The Terraform default and the cost table are still for `ap-southeast-1` and must be redone if the region changes.
+- No credentials were obtained, nothing was created.
+
 #### Still BLOCKED for Phase 09
-1. Command-line AWS credentials: owner runs `.tools\awscli\Amazon\AWSCLIV2\aws.exe login --region ap-southeast-1` and signs in -> then `terraform plan`.
+1. Region decision (see above), then command-line AWS credentials via `aws login --region <supported region>` -> then `terraform plan`.
 2. Confirmation that the Free plan permits the RDS, ALB, Fargate and Cognito resources in `infra/aws/`.
 3. GitHub repository URL -> push, then a workflow to build and push the two images.
 4. Owner approval of the first paid `apply`, with the plan output and the cost table in front of them.

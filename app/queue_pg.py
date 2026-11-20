@@ -46,13 +46,17 @@ class PgBroker:
     def receive(self):
         with Session(self.engine) as session, session.begin():
             now = session.scalar(select(func.clock_timestamp()))
-            # SKIP LOCKED: hai worker không bao giờ cùng nhận một message.
-            messages = session.scalars(
-                select(QueueMessage).where(QueueMessage.dead_at.is_(None), QueueMessage.visible_at <= now)
-                .order_by(QueueMessage.id).limit(5).with_for_update(skip_locked=True)
-            ).all()
-            for message in messages:
+            # SKIP LOCKED: hai worker không bao giờ cùng nhận một message. Mỗi lần chỉ khoá đúng một dòng,
+            # để receiver chạy song song lấy được dòng kế tiếp thay vì thấy cả lô đang bị khoá và ra về tay trắng.
+            for _ in range(5):
+                message = session.scalars(
+                    select(QueueMessage).where(QueueMessage.dead_at.is_(None), QueueMessage.visible_at <= now)
+                    .order_by(QueueMessage.id).limit(1).with_for_update(skip_locked=True)
+                ).first()
+                if message is None:
+                    return None
                 if message.deliveries >= MAX_DELIVERIES:
+                    # Đánh dấu chết rồi xét dòng kế tiếp trong cùng transaction (tối đa 5 dòng mỗi lần gọi).
                     message.dead_at, message.dead_reason = now, "delivery_exhausted"
                     continue
                 message.deliveries += 1

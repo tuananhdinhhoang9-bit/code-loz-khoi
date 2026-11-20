@@ -50,7 +50,15 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
       - name: Run tests
-        run: python -m pytest -q
+        run: |
+          set -o pipefail
+          python -m pytest -q -rfE --tb=line 2>&1 | tee pytest.log
+      # Log của job chỉ xem được khi đăng nhập; chú thích lỗi thì ai cũng xem được trên trang của lần chạy.
+      - name: Report failing tests as annotations
+        if: failure()
+        run: |
+          grep -E '^(FAILED|ERROR) ' pytest.log | head -n 9 | while read -r line; do echo "::error::${line:0:900}"; done
+          tail -n 1 pytest.log | sed 's/^/::notice::/'
 
   images:
     needs: test

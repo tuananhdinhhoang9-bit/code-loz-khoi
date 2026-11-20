@@ -2,6 +2,9 @@
 domain_name = "video.example.com"
 region      = "ap-southeast-2"
 
+# Kho GitHub được phép đẩy image lên ECR qua OIDC (chỉ nhánh main). Bỏ trống nếu chưa dùng.
+# github_repository = "owner/repository"
+
 # Lần apply đầu: để 0 cho đến khi hai image đã được đẩy lên ECR với đúng image_tag.
 # api_desired_count    = 0
 # worker_desired_count = 0

@@ -568,6 +568,16 @@ AWS CLI 2.41.2 (49 MB MSI from `awscli.amazonaws.com`, Authenticode signature Va
 - After the owner re-added the row: both authoritative servers and the public resolvers 8.8.8.8 and 1.1.1.1 return the `video` A record (TTL 3600) and the validation CNAME. The A record equals this VPS's public address. With the local DNS cache cleared, `https://video.uploadmdm.id.vn/health` -> HTTP 200 `database: ok` from the VPS.
 - **`aws acm list-certificates` -> `ISSUED`.** The certificate for `video.uploadmdm.id.vn` is ready for the load balancer. The validation CNAME must stay in DNS (ACM uses it for renewal).
 - How long outside visitors could not resolve the name while the A record was missing was not measured.
+
+#### GitHub repository known; **push deliberately held back** (owner is still editing the web interface)
+- Owner gave the repository (`tuananhdinhhoang9-bit/code-loz-khoi`, public) and asked not to push yet.
+- `git remote add origin …` and `git fetch origin` (read-only, no sign-in needed): the remote has **one commit, "Initial commit", containing only `README.md`**; no shared history with the local `main`, no workflows, no secret files. Nothing was pushed.
+- When pushing is allowed: the two histories are unrelated and both have a `README.md`. Join them with a merge that keeps the remote commit (`git merge origin/main --allow-unrelated-histories`, resolve `README.md` in favour of the project's), then a normal `git push -u origin main`. No force-push.
+- Prepared locally, not active until pushed/applied:
+  - `infra/aws/github.tf`: GitHub OIDC provider and a role `video-portal-github-images` that only the `main` branch of that repository can assume, limited to pushing to the two ECR repositories. Controlled by `github_repository` (empty = nothing created). `terraform validate` OK; `terraform plan` -> **`Plan: 56 to add, 0 to change, 0 to destroy`** (53 remaining + these 3). Not applied.
+  - `.github/workflows/ci.yml`: job `test` (PostgreSQL 18 service, FFmpeg, `pytest`) on every push and pull request; job `images` on `main` only, when the repository variable `AWS_ROLE_ARN` is set: build `api` and `worker` from `deploy/aws/Dockerfile`, push to ECR tagged with the commit SHA.
+- **Unverified:** the workflow has never run and was not even syntax-checked (no YAML parser or `actionlint` here); the test suite has only ever run on Windows in this project, so Linux-only failures in CI are possible; the Docker build is still untested. The deploy step (new task definition, service update, rollback) belongs to Phase 12 and is not in the workflow.
+- Because the repository is public, everything pushed becomes public, including the commit author e-mail and `docs/PROGRESS.md`.
 2. Confirmation that the Free plan permits the RDS, ALB, Fargate and Cognito resources in `infra/aws/`.
 3. GitHub repository URL -> push, then a workflow to build and push the two images.
 4. Owner approval of the first paid `apply`, with the plan output and the cost table in front of them.

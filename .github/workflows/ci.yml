@@ -1,0 +1,90 @@
+# Chạy test ở mọi lần push; ở nhánh main thì build hai image và đẩy lên ECR.
+# Không có secret nào trong kho: job `images` lấy quyền AWS tạm thời qua OIDC (infra/aws/github.tf).
+# Biến của kho (Settings > Secrets and variables > Actions > Variables):
+#   AWS_ROLE_ARN  - output `github_images_role_arn` của Terraform. Chưa đặt thì job `images` được bỏ qua.
+#   AWS_REGION    - ví dụ ap-southeast-2
+#   ECR_PREFIX    - tiền tố tên kho ECR, mặc định video-portal
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: video_portal
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: video_portal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U video_portal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Mật khẩu này chỉ thuộc về container PostgreSQL tạm của lần chạy CI, không phải của hệ thống thật.
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: video_portal
+      POSTGRES_USER: video_portal
+      POSTGRES_PASSWORD: ci-only-password
+      RUN_DB_TESTS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Run tests
+        run: python -m pytest -q
+
+  images:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AWS_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECR_PREFIX: ${{ vars.ECR_PREFIX || 'video-portal' }}
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push api and worker
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          set -euo pipefail
+          for target in api worker; do
+            repository="${ECR_PREFIX}-${target}"
+            # Tag trong ECR không ghi đè được: commit đã có image thì bỏ qua thay vì báo lỗi khi chạy lại.
+            if aws ecr describe-images --repository-name "$repository" --image-ids imageTag="$IMAGE_TAG" >/dev/null 2>&1; then
+              echo "$repository:$IMAGE_TAG already exists, skipping"
+              continue
+            fi
+            docker build -f deploy/aws/Dockerfile --target "$target" -t "$REGISTRY/$repository:$IMAGE_TAG" .
+            docker push "$REGISTRY/$repository:$IMAGE_TAG"
+          done
+          echo "Pushed image tag: $IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"

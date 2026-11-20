@@ -526,8 +526,11 @@ Owner asked to continue with Phase 09 (`prompts/09-AWS-DEPLOY.md`). **Nothing wa
 - `scripts/smoke_test.py` against the same server -> **23/23 PASS**, `storage: local`, processing 3.08 s for a 3-second clip.
 - These are local-mode runs on the development tree. They say nothing about AWS: the Cognito sign-in and S3 upload branches of the scripts were exercised only by the unit tests with a fake client.
 
+#### AWS CLI (later the same day)
+AWS CLI 2.41.2 (49 MB MSI from `awscli.amazonaws.com`, Authenticode signature Valid, signer "Amazon Web Services, Inc.") was unpacked with `msiexec /a` into `.tools\awscli` (gitignored) with the owner's go-ahead. It is **not installed system-wide** (not on PATH, no registry entries). No credentials are configured: the owner still has to run `aws login` and sign in in their own browser. No long-lived access key is to be created.
+
 #### Still BLOCKED for Phase 09
-1. Command-line AWS credentials (CloudShell after verification, or another approved way) -> `terraform plan`.
+1. Command-line AWS credentials: owner runs `.tools\awscli\Amazon\AWSCLIV2\aws.exe login --region ap-southeast-1` and signs in -> then `terraform plan`.
 2. Confirmation that the Free plan permits the RDS, ALB, Fargate and Cognito resources in `infra/aws/`.
 3. GitHub repository URL -> push, then a workflow to build and push the two images.
 4. Owner approval of the first paid `apply`, with the plan output and the cost table in front of them.

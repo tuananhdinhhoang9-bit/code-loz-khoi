@@ -620,6 +620,14 @@ The owner found option A too plain and gave a concrete direction: charcoal sideb
 - Verified in the embedded browser on the development server (port 8011, local mode, throwaway PostgreSQL, real FFmpeg worker) at 1440x900 and 375x812: no console errors; guest screen; sign-in; dashboard; library grid, list and menu; details for a READY video (player `readyState 4`, 320x180) and for a FAILED video; a real MP4 uploaded through the page, observed states `Đã gửi 95 KB` -> `Đang xếp hàng` -> `Đang kiểm tra file` -> `99%` -> `Hoàn tất`; delete; sign-out; no horizontal overflow at 375 px. Twelve screenshots are in `design/screenshots/media-studio/` (test clips and the throwaway dev account only).
 - `RUN_DB_TESTS=1 pytest -q` -> **172 passed, 7 skipped**.
 - Not verified: other browsers, real phones, keyboard-only use of the action menu beyond focus and Escape, the Cognito/S3 branches, and anything on the live site.
+
+### 2026-11-21 — "Media Studio" interface deployed to the VPS (owner approved after seeing the screenshots)
+- Deployed from commit `fb7b7a2` with a clean working tree. Again only `app\templates\index.html`, `app\static\portal.css`, `app\static\portal.js` were replaced in `C:\VideoPortal\app`; backend, configuration, database, Worker and Caddy untouched.
+- Backup of the files that were live (option A): `C:\VideoPortal\backups\ui-before-media-studio-2026-11-21\`. The earlier backup of the original space-theme files is still in `ui-before-2026-11-21\`.
+- `Restart-Service VideoPortal-API`: healthy again after 5 s; all four services Running.
+- Checked over HTTPS on `video.uploadmdm.id.vn`: home 200 with the guest intro and the `#watch` page in the markup; `portal.css` and `portal.js` byte-identical to the repository; `/health` -> `database: ok`; `/api/videos` without a token -> 401; `/api/config` -> local provider, 200 MB limit (so the page shows 200 MB there, 50 MB in development); `api-error.log` empty and no 5xx in the last API log lines.
+- Not verified: the live pages in a real browser after sign-in (no account on the live site; the embedded browser blocks the live static files). The owner is asked to hard-refresh and try sign-in, playback and one upload.
+- Rollback: copy the three files back from the backup folder of the wanted version and `Restart-Service VideoPortal-API`.
 2. Confirmation that the Free plan permits the RDS, ALB, Fargate and Cognito resources in `infra/aws/`.
 3. GitHub repository URL -> push, then a workflow to build and push the two images.
 4. Owner approval of the first paid `apply`, with the plan output and the cost table in front of them.

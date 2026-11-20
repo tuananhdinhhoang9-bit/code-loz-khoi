@@ -608,6 +608,18 @@ Owner asked for three design directions first, picked A, and asked that backend,
   - run 3 (`88b7857`): **success** — job `test` passed on Linux; job `images` skipped as designed (repository variable `AWS_ROLE_ARN` is not set yet). https://github.com/tuananhdinhhoang9-bit/code-loz-khoi/actions/runs/44785425103
 - The VPS still runs the earlier `queue_pg.py`; with its single worker the old behaviour only meant an occasional empty poll. Not redeployed.
 - Still not done in CI: image build (needs the AWS role), deploy and rollback (Phase 12).
+
+### 2026-11-21 — Second interface redesign, "Media Studio" (owner brief); development only, **not deployed**
+The owner found option A too plain and gave a concrete direction: charcoal sidebar `#111827`, content `#F5F6FA`, primary `#2563EB`, a colour per processing state, real thumbnails as the accent, 150–250 ms transitions, and five screens (signed-out intro, dashboard, library workspace, upload, video details). Constraints kept: no backend, API, database or FFmpeg change; no fake data; no private video exposed; no production deploy before approval.
+- Changed: `app/templates/index.html`, `app/static/portal.css`, `app/static/portal.js` only. **No Python file changed.** The VPS still serves option A (deployed earlier the same day); `C:\VideoPortal\app` was not touched in this step.
+- Signed out: the application shell is hidden entirely; one screen explains the product with the four real pipeline stages and the real limits (from `/api/config`), next to the sign-in form. No statistics, thumbnails or video markup exist in the DOM for a guest (checked: 0 such elements, and after sign-out the player has no `src`).
+- Dashboard: pipeline card with four stage counters and the videos currently waiting or processing with measured progress; a dark metrics card; "Video gần đây" with real thumbnails where the newest video is shown double size; failed videos with the reason; videos shared with the user.
+- Library: status tabs, owner filter (all / mine / shared), name search, **grid or list** (choice kept in `localStorage`), and a per-video action menu (open, share, delete — the last two only for the owner).
+- Video details is now a page (`#watch`) instead of a side panel and modal: inline player first, then processing steps, metadata, sharing and delete. A video that is not READY shows its state and reason instead of a player.
+- Upload: large drop zone, a card with the chosen file's name, size and type (with a warning for a wrong type or size), and two separately measured phases: bytes sent by the browser, then the FFmpeg percentage reported by the server.
+- Verified in the embedded browser on the development server (port 8011, local mode, throwaway PostgreSQL, real FFmpeg worker) at 1440x900 and 375x812: no console errors; guest screen; sign-in; dashboard; library grid, list and menu; details for a READY video (player `readyState 4`, 320x180) and for a FAILED video; a real MP4 uploaded through the page, observed states `Đã gửi 95 KB` -> `Đang xếp hàng` -> `Đang kiểm tra file` -> `99%` -> `Hoàn tất`; delete; sign-out; no horizontal overflow at 375 px. Twelve screenshots are in `design/screenshots/media-studio/` (test clips and the throwaway dev account only).
+- `RUN_DB_TESTS=1 pytest -q` -> **172 passed, 7 skipped**.
+- Not verified: other browsers, real phones, keyboard-only use of the action menu beyond focus and Escape, the Cognito/S3 branches, and anything on the live site.
 2. Confirmation that the Free plan permits the RDS, ALB, Fargate and Cognito resources in `infra/aws/`.
 3. GitHub repository URL -> push, then a workflow to build and push the two images.
 4. Owner approval of the first paid `apply`, with the plan output and the cost table in front of them.

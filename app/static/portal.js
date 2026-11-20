@@ -88,18 +88,27 @@ const views = [...document.querySelectorAll(".view")];
 function route() {
   const wanted = window.location.hash.slice(1) || "home";
   const view = views.find((item) => item.id === wanted) || views[0];
+  // Trang chi tiết cần một video đang chọn; gõ thẳng #watch hoặc video vừa bị xoá thì quay về Thư viện.
+  if (view.id === "watch" && !videos.some((video) => video.id === selectedId)) {
+    window.location.hash = "#library";
+    return;
+  }
   for (const item of views) item.hidden = item !== view;
   $("view-title").textContent = view.dataset.title;
+  const section = view.id === "watch" ? "library" : view.id;
   document.querySelectorAll(".nav-link").forEach((link) => {
-    const active = link.dataset.view === view.id;
+    const active = link.dataset.view === section;
     link.classList.toggle("active", active);
     if (active) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   });
   $("sidebar").classList.remove("open");
   $("menu-toggle").setAttribute("aria-expanded", "false");
-  if (view.id === "library" && user) refresh().catch((error) => say(error.message, true));
+  closeMenu();
+  if (view.id !== "watch") closePlayer();
+  if (user && ["home", "library", "watch"].includes(view.id)) refresh().catch((error) => say(error.message, true));
   if (view.id === "users" && user && user.admin) loadUsers().catch((error) => say(error.message, true));
+  if (view.id === "watch") fillDetail();
   window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", route);
@@ -111,24 +120,18 @@ $("menu-toggle").addEventListener("click", () => {
 // ---------- Đăng nhập ----------
 function applyAuth() {
   const local = provider === "local";
-  $("identity").textContent = user ? user.uid : "Chưa đăng nhập";
-  $("role").textContent = user ? (user.admin ? "Quản trị viên" : "Người dùng") : "";
-  $("status-dot").classList.toggle("on", Boolean(user));
-  $("logout").hidden = !user;
-  $("login-form").hidden = Boolean(user);
-  $("profile").hidden = !user;
+  // Chưa đăng nhập thì chỉ hiện màn hình giới thiệu; không có dữ liệu hay khung trống nào của ứng dụng lộ ra.
+  document.body.classList.toggle("guest", !user);
   $("password-form").hidden = !local;
-  $("library-gate").hidden = Boolean(user);
-  $("upload-gate").hidden = Boolean(user);
-  $("upload-form").hidden = !user;
   $("nav-users").hidden = !(user && user.admin && local);
   $("users-gate").hidden = Boolean(user && user.admin && local);
   $("users-body").hidden = !(user && user.admin && local);
-  $("stats-hint").hidden = Boolean(user);
-  if (user) {
-    $("profile-name").textContent = user.uid;
-    $("profile-role").textContent = user.admin ? "Quản trị viên: quản lý được tài khoản và xem số liệu hệ thống." : "Người dùng: tải lên, xem và chia sẻ video của mình.";
-  }
+  if (!user) return;
+  $("identity").textContent = user.uid;
+  $("role").textContent = user.admin ? "Quản trị viên" : "Người dùng";
+  $("avatar").textContent = user.uid.slice(0, 1);
+  $("profile-name").textContent = user.uid;
+  $("profile-role").textContent = user.admin ? "Quản trị viên: quản lý được tài khoản và xem số liệu hệ thống." : "Người dùng: tải lên, xem và chia sẻ video của mình.";
 }
 
 function signOut(showMessage = true) {
@@ -140,12 +143,15 @@ function signOut(showMessage = true) {
   thumbnails.clear();
   window.clearTimeout(pollTimer);
   closePlayer();
+  closeMenu();
   $("password").value = "";
   $("tracker-panel").hidden = true;
   $("search").value = "";
   searchText = "";
   render();
   applyAuth();
+  // Lần đăng nhập sau bắt đầu lại ở Tổng quan.
+  if (window.location.hash && window.location.hash !== "#home") window.location.hash = "#home";
   if (showMessage) say("Đã đăng xuất.");
   else say("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.", true);
 }
@@ -202,7 +208,7 @@ $("login-form").addEventListener("submit", async (event) => {
     user = await api("/api/me");
     applyAuth();
     say("Đăng nhập thành công.");
-    window.location.hash = "#library";
+    window.location.hash = "#home";
     await refresh();
   } catch (error) {
     token = "";
@@ -232,12 +238,17 @@ $("password-form").addEventListener("submit", async (event) => {
   }
 });
 
-// ---------- Thư viện và Tổng quan ----------
+// ---------- Tổng quan, thư viện, chi tiết video ----------
 let statusFilter = "all"; // all | ready | active | failed
-let ownerFilter = "all"; // all | mine
+let ownerFilter = "all"; // all | mine | shared
+let viewMode = "grid"; // grid | list
 let searchText = "";
 let lastRender = "";
-let detailShown = "";
+try {
+  if (window.localStorage.getItem("video-portal-view") === "list") viewMode = "list";
+} catch (error) {
+  // Trình duyệt chặn localStorage: dùng kiểu lưới mặc định.
+}
 
 function clock(milliseconds) {
   const seconds = Math.round(milliseconds / 1000);
@@ -252,11 +263,15 @@ function dateText(iso) {
 const ownerText = (video) => (video.owner_uid === user.uid ? "Của bạn" : "Chia sẻ bởi " + video.owner_uid);
 const waiting = (video) => ACTIVE.has(video.status) || video.status === "PENDING_UPLOAD";
 
-function setBadge(item, video) {
+function stateText(video) {
   const percent = details.get(video.id)?.progress;
+  return (labels[video.status] || video.status) + (video.status === "PROCESSING" && Number.isInteger(percent) ? ` ${percent}%` : "");
+}
+
+function setBadge(item, video) {
   item.className = "st";
   item.dataset.state = video.status;
-  item.textContent = (labels[video.status] || video.status) + (video.status === "PROCESSING" && Number.isInteger(percent) ? ` ${percent}%` : "");
+  item.textContent = stateText(video);
   return item;
 }
 
@@ -271,6 +286,15 @@ function progressBar(video) {
   return bar;
 }
 
+function icon(name) {
+  const space = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(space, "svg");
+  const use = document.createElementNS(space, "use");
+  use.setAttribute("href", "#i-" + name);
+  svg.append(use);
+  return svg;
+}
+
 // Lời gọi /thumbnail trả cả liên kết ảnh (sống 2 phút) lẫn thời lượng đã đo của video.
 async function thumbnailInfo(video) {
   const cached = thumbnails.get(video.id);
@@ -282,11 +306,18 @@ async function thumbnailInfo(video) {
 }
 const thumbnailUrl = async (video) => (await thumbnailInfo(video)).url;
 
-// Khung ảnh thu nhỏ 16:9. Video chưa sẵn sàng thì để khung xám trống, không vẽ ảnh giả.
+// Khung 16:9. Video sẵn sàng thì hiện ảnh thu nhỏ thật và thời lượng; chưa sẵn sàng thì hiện đúng trạng thái, không vẽ ảnh giả.
 function thumb(video, onDuration) {
   const box = document.createElement("span");
   box.className = "thumb";
-  if (video.status !== "READY") return box;
+  box.dataset.state = video.status;
+  if (video.status !== "READY") {
+    const state = document.createElement("span");
+    state.className = "state";
+    state.textContent = stateText(video);
+    box.append(state);
+    return box;
+  }
   const image = document.createElement("img");
   image.alt = "";
   image.addEventListener("error", () => image.remove());
@@ -294,7 +325,8 @@ function thumb(video, onDuration) {
   thumbnailInfo(video).then((info) => {
     image.src = info.url;
     if (info.duration == null) return;
-    const length = document.createElement("b");
+    const length = document.createElement("span");
+    length.className = "len";
     length.textContent = clock(info.duration);
     box.append(length);
     if (onDuration) onDuration(length.textContent);
@@ -308,29 +340,116 @@ function visibleVideos() {
     if (statusFilter === "active" && !waiting(video)) return false;
     if (statusFilter === "failed" && video.status !== "FAILED") return false;
     if (ownerFilter === "mine" && video.owner_uid !== user.uid) return false;
+    if (ownerFilter === "shared" && video.owner_uid === user.uid) return false;
     return !searchText || video.title.toLowerCase().includes(searchText);
   });
 }
 
+// Mở trang chi tiết của một video; video sẵn sàng thì phát luôn.
+let wantPlay = false;
+function select(id) {
+  selectedId = id;
+  wantPlay = true;
+  if (window.location.hash !== "#watch") window.location.hash = "#watch";
+  else route();
+}
+
+// ----- Menu thao tác của từng video -----
+function closeMenu() {
+  $("item-menu").hidden = true;
+  $("item-menu").replaceChildren();
+}
+
+function openMenu(video, anchor) {
+  const menu = $("item-menu");
+  const entry = (text, action, danger = false) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.setAttribute("role", "menuitem");
+    if (danger) item.className = "danger";
+    item.textContent = text;
+    item.addEventListener("click", () => { closeMenu(); action(); });
+    return item;
+  };
+  const entries = [entry(video.status === "READY" ? "Xem video" : "Xem trạng thái", () => select(video.id))];
+  if (video.owner_uid === user.uid) {
+    entries.push(entry("Chia sẻ", () => { select(video.id); window.setTimeout(() => $("viewer").focus(), 250); }));
+    entries.push(entry("Xoá video", () => removeVideo(video), true));
+  }
+  menu.replaceChildren(...entries);
+  menu.hidden = false;
+  const box = anchor.getBoundingClientRect();
+  menu.style.top = Math.max(8, Math.min(box.bottom + 4, window.innerHeight - menu.offsetHeight - 8)) + "px";
+  menu.style.left = Math.max(8, Math.min(box.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8)) + "px";
+  entries[0].focus();
+}
+document.addEventListener("click", (event) => { if (!$("item-menu").hidden && !event.target.closest("#item-menu, .more")) closeMenu(); });
+document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeMenu(); });
+window.addEventListener("scroll", closeMenu, { passive: true });
+
+function moreButton(video) {
+  const more = document.createElement("button");
+  more.type = "button";
+  more.className = "more";
+  more.setAttribute("aria-label", "Thao tác với video " + video.title);
+  more.setAttribute("aria-haspopup", "menu");
+  more.append(icon("more"));
+  more.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if ($("item-menu").hidden) openMenu(video, more);
+    else closeMenu();
+  });
+  return more;
+}
+
+async function removeVideo(video) {
+  if (!window.confirm(`Xoá vĩnh viễn video "${video.title}"?`)) return;
+  try {
+    await api(`/api/videos/${video.id}`, { method: "DELETE" });
+    thumbnails.delete(video.id);
+    if (selectedId === video.id) selectedId = null;
+    await refresh();
+    if (window.location.hash === "#watch") window.location.hash = "#library";
+    say("Đã xoá video và các file liên quan.");
+  } catch (error) {
+    say(error.message, true);
+  }
+}
+
+// ----- Thẻ video (lưới) và dòng video (danh sách) -----
+function mediaCard(video, featured = false) {
+  const item = document.createElement("article");
+  item.className = "media" + (featured ? " featured" : "");
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "thumb-button";
+  open.setAttribute("aria-label", (video.status === "READY" ? "Xem video " : "Xem trạng thái video ") + video.title);
+  open.append(thumb(video));
+  open.addEventListener("click", () => select(video.id));
+  const foot = document.createElement("div");
+  foot.className = "media-foot";
+  const title = document.createElement("strong");
+  title.className = "media-title";
+  title.textContent = video.title;
+  const meta = document.createElement("span");
+  meta.className = "media-meta";
+  meta.textContent = `${ownerText(video)}, ${dateText(video.created_at)}`;
+  foot.append(title, moreButton(video), meta);
+  if (ACTIVE.has(video.status)) foot.append(progressBar(video));
+  item.append(open, foot);
+  return item;
+}
+
 function row(video) {
   const line = document.createElement("tr");
-  line.dataset.id = video.id;
-  line.tabIndex = 0;
-  if (video.id === selectedId) line.className = "sel";
   const cell = (...children) => { const item = document.createElement("td"); item.append(...children); line.append(item); return item; };
-
   const duration = document.createElement("span");
   duration.textContent = "–";
   const picture = document.createElement("button");
   picture.type = "button";
   picture.className = "thumb-button";
-  picture.setAttribute("aria-label", (video.status === "READY" ? "Xem video " : "Chi tiết video ") + video.title);
+  picture.setAttribute("aria-label", (video.status === "READY" ? "Xem video " : "Xem trạng thái video ") + video.title);
   picture.append(thumb(video, (value) => { duration.textContent = value; }));
-  picture.addEventListener("click", (event) => {
-    event.stopPropagation();
-    select(video.id);
-    if (video.status === "READY") openPlayer(video);
-  });
   const text = document.createElement("div");
   const title = document.createElement("strong");
   title.textContent = video.title;
@@ -341,60 +460,35 @@ function row(video) {
   name.className = "name";
   name.append(picture, text);
   cell(name);
-
   const state = cell(setBadge(document.createElement("span"), video));
   if (ACTIVE.has(video.status)) state.append(progressBar(video));
   cell(duration);
   cell(sizeText(video.size_bytes));
   cell(dateText(video.created_at));
-  line.addEventListener("click", () => select(video.id, true));
-  line.addEventListener("keydown", (event) => { if (event.key === "Enter" && event.target === line) select(video.id, true); });
+  cell(moreButton(video));
+  line.addEventListener("click", () => select(video.id));
   return line;
 }
 
-function emptyRow(text) {
-  const line = document.createElement("tr");
-  const item = document.createElement("td");
-  item.colSpan = 5;
-  item.className = "none";
-  item.textContent = text;
-  line.append(item);
-  return line;
-}
-
-// Một ô trong "Dòng xử lý": bấm vào thì mở video đó trong Thư viện.
-function job(video) {
-  const info = details.get(video.id) || {};
-  const item = document.createElement("button");
-  item.type = "button";
-  item.className = "job";
-  const title = document.createElement("strong");
-  title.textContent = video.title;
-  const meta = document.createElement("small");
-  if (video.status === "PROCESSING") meta.textContent = Number.isInteger(info.progress) ? `Đang chuyển mã, ${info.progress}%` : "Đang kiểm tra file";
-  else if (video.status === "RETRYING") meta.textContent = "Lần trước bị gián đoạn, đang thử lại";
-  else meta.textContent = `${sizeText(video.size_bytes)}, tải lên ${dateText(video.created_at)}`;
-  item.append(title, meta);
-  if (video.status === "PROCESSING") item.append(progressBar(video));
-  item.addEventListener("click", () => { window.location.hash = "#library"; select(video.id, true); });
-  return item;
-}
-
-function fillLane(name, list, emptyText, limit = 4) {
-  $("count-" + name).textContent = list.length;
-  const lane = $("lane-" + name);
-  lane.replaceChildren(...list.slice(0, limit).map(job));
-  if (!list.length) {
-    const none = document.createElement("p");
-    none.className = "none";
-    none.textContent = emptyText;
-    lane.append(none);
-  } else if (list.length > limit) {
-    const more = document.createElement("p");
-    more.className = "none";
-    more.textContent = `và ${list.length - limit} video khác`;
-    lane.append(more);
-  }
+// ----- Tổng quan -----
+function fillRunning(list) {
+  const items = list.slice(0, 4).map((video) => {
+    const item = document.createElement("li");
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "link";
+    open.textContent = video.title;
+    open.addEventListener("click", () => select(video.id));
+    item.append(open, setBadge(document.createElement("span"), video));
+    if (ACTIVE.has(video.status)) item.append(progressBar(video));
+    return item;
+  });
+  const note = document.createElement("li");
+  note.className = "idle";
+  if (!list.length) note.textContent = "Không có video nào đang xử lý. Video mới tải lên sẽ hiện ở đây cùng tiến độ đo được.";
+  else if (list.length > 4) note.textContent = `và ${list.length - 4} video khác đang chờ`;
+  if (note.textContent) items.push(note);
+  $("running").replaceChildren(...items);
 }
 
 function fillRows(id, list, emptyText, describe) {
@@ -411,7 +505,7 @@ function fillRows(id, list, emptyText, describe) {
     open.className = "link";
     open.textContent = "Mở";
     open.setAttribute("aria-label", "Mở video " + video.title);
-    open.addEventListener("click", () => { window.location.hash = "#library"; select(video.id, true); });
+    open.addEventListener("click", () => select(video.id));
     item.append(thumb(video), text, open);
     return item;
   });
@@ -424,43 +518,70 @@ function fillRows(id, list, emptyText, describe) {
   $(id).replaceChildren(...items);
 }
 
+function fillDashboard() {
+  const stages = {
+    pending: videos.filter((video) => video.status === "PENDING_UPLOAD").length,
+    queued: videos.filter((video) => video.status === "QUEUED" || video.status === "RETRYING").length,
+    processing: videos.filter((video) => video.status === "PROCESSING").length,
+    ready: videos.filter((video) => video.status === "READY").length,
+  };
+  for (const [name, total] of Object.entries(stages)) {
+    $("count-" + name).textContent = total;
+    document.querySelector(`.stages [data-stage="${name}"]`).classList.toggle("has", total > 0);
+  }
+  fillRunning(videos.filter(waiting));
+  $("live-home").hidden = !videos.some((video) => ACTIVE.has(video.status));
+
+  // Video gần đây: API trả video mới nhất trước; ô đầu tiên được phóng to.
+  const recent = videos.slice(0, 5).map((video, index) => mediaCard(video, index === 0 && videos.length > 2));
+  if (!recent.length) {
+    const none = document.createElement("p");
+    none.className = "hint";
+    none.textContent = "Chưa có video nào. Bấm Tải video lên để bắt đầu.";
+    recent.push(none);
+  }
+  $("recent").replaceChildren(...recent);
+  fillRows("attention", videos.filter((video) => video.status === "FAILED"), "Không có video nào cần bạn xử lý.",
+    (video) => (failures[details.get(video.id)?.error] || "Máy chủ không xử lý được video này.") + " Hãy tải một file khác.");
+  fillRows("shared", videos.filter((video) => video.owner_uid !== user.uid), "Chưa ai chia sẻ video cho bạn.", ownerText);
+}
+
 function render() {
-  const count = (matches) => videos.filter(matches).length;
-  $("stat-total").textContent = user ? videos.length : "–";
-  $("stat-ready").textContent = user ? count((video) => video.status === "READY") : "–";
-  $("stat-active").textContent = user ? count(waiting) : "–";
-  $("stat-failed").textContent = user ? count((video) => video.status === "FAILED") : "–";
-  $("nav-count").hidden = !user || !videos.length;
-  $("nav-count").textContent = videos.length;
-  $("home-body").hidden = !user;
-  $("library-empty").hidden = !user || videos.length > 0;
-  $("library-body").hidden = !user || !videos.length;
   if (!user) {
     lastRender = "";
-    $("videos").replaceChildren();
-    fillDetail();
+    for (const id of ["recent", "running", "attention", "shared", "video-grid", "videos"]) $(id).replaceChildren();
     return;
   }
-  // Chỉ dựng lại bảng khi dữ liệu thật sự đổi: tránh tải lại ảnh thu nhỏ mỗi lần trang tự hỏi trạng thái.
-  const signature = JSON.stringify([statusFilter, ownerFilter, searchText, videos.map((video) => [video.id, video.status, video.title, details.get(video.id)])]);
+  const count = (matches) => videos.filter(matches).length;
+  $("stat-total").textContent = videos.length;
+  $("stat-ready").textContent = count((video) => video.status === "READY");
+  $("stat-active").textContent = count(waiting);
+  $("stat-failed").textContent = count((video) => video.status === "FAILED");
+  $("nav-count").hidden = !videos.length;
+  $("nav-count").textContent = videos.length;
+  $("library-empty").hidden = videos.length > 0;
+  $("library-body").hidden = !videos.length;
+  // Chỉ dựng lại khi dữ liệu thật sự đổi: tránh tải lại ảnh thu nhỏ mỗi lần trang tự hỏi trạng thái.
+  const signature = JSON.stringify([statusFilter, ownerFilter, viewMode, searchText, videos.map((video) => [video.id, video.status, video.title, details.get(video.id)])]);
   if (signature !== lastRender) {
     lastRender = signature;
     const shown = visibleVideos();
-    $("videos").replaceChildren(...(shown.length ? shown.map(row) : [emptyRow("Không có video nào khớp bộ lọc.")]));
+    $("video-grid").hidden = viewMode !== "grid" || !shown.length;
+    $("video-list").hidden = viewMode !== "list" || !shown.length;
+    $("no-match").hidden = shown.length > 0;
+    $("video-grid").replaceChildren(...(viewMode === "grid" ? shown.map((video) => mediaCard(video)) : []));
+    $("videos").replaceChildren(...(viewMode === "list" ? shown.map(row) : []));
+    const totals = { all: videos.length, ready: count((video) => video.status === "READY"), active: count(waiting), failed: count((video) => video.status === "FAILED") };
     for (const button of $("status-filter").children) {
-      const total = { all: videos.length, ready: count((video) => video.status === "READY"), active: count(waiting), failed: count((video) => video.status === "FAILED") }[button.dataset.filter];
-      button.textContent = `${button.dataset.label} ${total}`;
+      button.textContent = `${button.dataset.label} ${totals[button.dataset.filter]}`;
       button.classList.toggle("on", button.dataset.filter === statusFilter);
     }
     for (const button of $("owner-filter").children) button.classList.toggle("on", button.dataset.owner === ownerFilter);
-
-    fillLane("pending", videos.filter((video) => video.status === "PENDING_UPLOAD"), "Không có lượt tải nào dang dở.");
-    fillLane("queued", videos.filter((video) => video.status === "QUEUED" || video.status === "RETRYING"), "Không có video nào đang chờ.");
-    fillLane("processing", videos.filter((video) => video.status === "PROCESSING"), "Máy chủ đang rảnh.");
-    fillLane("ready", videos.filter((video) => video.status === "READY"), "Chưa có video nào sẵn sàng.", 3);
-    fillRows("attention", videos.filter((video) => video.status === "FAILED"), "Không có video nào cần bạn xử lý.",
-      (video) => (failures[details.get(video.id)?.error] || "Máy chủ không xử lý được video này.") + " Hãy tải một file khác.");
-    fillRows("shared", videos.filter((video) => video.owner_uid !== user.uid), "Chưa ai chia sẻ video cho bạn.", ownerText);
+    for (const button of $("view-mode").children) {
+      button.classList.toggle("on", button.dataset.mode === viewMode);
+      button.setAttribute("aria-pressed", String(button.dataset.mode === viewMode));
+    }
+    fillDashboard();
   }
   fillDetail();
 }
@@ -484,49 +605,62 @@ async function refresh() {
   if (active) pollTimer = window.setTimeout(() => refresh().catch(() => {}), 2500);
 }
 
-function select(id, scroll = false) {
-  selectedId = id;
-  document.querySelectorAll("#videos tr[data-id]").forEach((line) => line.classList.toggle("sel", line.dataset.id === id));
-  fillDetail();
-  // Trên màn hình hẹp khung chi tiết nằm dưới bảng nên phải cuộn tới.
-  if (scroll && window.matchMedia("(max-width: 1100px)").matches) $("detail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+// ----- Chi tiết video -----
+function markSteps(list, step, failed = false) {
+  const items = [...list.children];
+  const index = items.findIndex((item) => item.dataset.step === step);
+  items.forEach((item, position) => {
+    item.className = position < index ? "done" : position === index ? (failed ? "failed" : step === "ready" ? "done" : "active") : "";
+  });
 }
 
+let playerFor = null; // id của video đang nằm trong trình phát
 function fillDetail() {
+  if ($("watch").hidden) return;
   const video = user && videos.find((item) => item.id === selectedId);
-  $("detail").hidden = !video;
-  $("library-split").classList.toggle("has-detail", Boolean(video));
   if (!video) {
-    detailShown = "";
+    window.location.hash = "#library";
     return;
   }
   const mine = video.owner_uid === user.uid;
   const info = details.get(video.id) || {};
-  if (detailShown !== video.id + video.status) {
-    detailShown = video.id + video.status;
-    $("detail-duration").textContent = "–";
-    $("detail-thumb").replaceChildren(thumb(video, (value) => { $("detail-duration").textContent = value; }));
-  }
   $("detail-title").textContent = video.title;
   setBadge($("video-status"), video);
+  setBadge($("stage-state"), video);
   $("detail-owner").textContent = mine ? "Bạn" : video.owner_uid;
   $("detail-size").textContent = sizeText(video.size_bytes);
   $("detail-created").textContent = new Date(video.created_at).toLocaleString("vi-VN");
+  const step = { PENDING_UPLOAD: "send", QUEUED: "queue", RETRYING: "process", PROCESSING: "process", READY: "ready", FAILED: "process" }[video.status];
+  markSteps($("detail-steps"), step, video.status === "FAILED");
   const bar = $("detail-progress");
   bar.hidden = !ACTIVE.has(video.status);
   bar.classList.toggle("busy", !(video.status === "PROCESSING" && Number.isInteger(info.progress)));
   bar.firstElementChild.style.width = Number.isInteger(info.progress) ? info.progress + "%" : "";
   let note = "";
-  if (video.status === "PROCESSING") note = Number.isInteger(info.progress) ? `Đang chuyển mã: ${info.progress}%` : "Đang kiểm tra file.";
+  if (video.status === "PROCESSING") note = Number.isInteger(info.progress) ? `Đang chuyển mã: ${info.progress}%.` : "Đang kiểm tra file.";
   else if (video.status === "QUEUED") note = "Đang chờ tới lượt. Máy chủ xử lý từng video một.";
   else if (video.status === "RETRYING") note = "Lần xử lý trước bị gián đoạn. Hệ thống đang thử lại.";
   else if (video.status === "FAILED") note = (failures[info.error] || "Máy chủ không xử lý được video này.") + " Hãy tải một file khác.";
   else if (video.status === "PENDING_UPLOAD") note = "File chưa được tải lên xong.";
   $("detail-note").textContent = note;
   $("detail-note").hidden = !note;
-  $("play").disabled = video.status !== "READY";
+  $("stage-text").textContent = note;
   $("delete-video").hidden = !mine;
   $("permission-form").hidden = !mine;
+  if (video.status === "READY") {
+    $("stage-wait").hidden = true;
+    if (playerFor !== video.id) {
+      playerFor = video.id;
+      $("detail-duration").textContent = "–";
+      loadPlayer(video, wantPlay);
+    }
+  } else {
+    if (playerFor) closePlayer();
+    $("stage-wait").hidden = false;
+    $("detail-duration").textContent = "Chưa có";
+    $("player-note").textContent = "";
+  }
+  wantPlay = false;
 }
 
 $("status-filter").addEventListener("click", (event) => {
@@ -537,6 +671,17 @@ $("status-filter").addEventListener("click", (event) => {
 $("owner-filter").addEventListener("click", (event) => {
   if (!event.target.dataset.owner) return;
   ownerFilter = event.target.dataset.owner;
+  render();
+});
+$("view-mode").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-mode]");
+  if (!button) return;
+  viewMode = button.dataset.mode;
+  try {
+    window.localStorage.setItem("video-portal-view", viewMode);
+  } catch (error) {
+    // Không lưu được lựa chọn: vẫn đổi kiểu hiển thị cho lần xem này.
+  }
   render();
 });
 $("search").addEventListener("input", () => {
@@ -554,23 +699,9 @@ $("refresh").addEventListener("click", async () => {
   }
 });
 
-$("play").addEventListener("click", () => {
+$("delete-video").addEventListener("click", () => {
   const video = videos.find((item) => item.id === selectedId);
-  if (video) openPlayer(video);
-});
-
-$("delete-video").addEventListener("click", async () => {
-  const video = videos.find((item) => item.id === selectedId);
-  if (!video || !window.confirm(`Xoá vĩnh viễn video "${video.title}"?`)) return;
-  try {
-    await api(`/api/videos/${video.id}`, { method: "DELETE" });
-    selectedId = null;
-    thumbnails.delete(video.id);
-    await refresh();
-    say("Đã xoá video và các file liên quan.");
-  } catch (error) {
-    say(error.message, true);
-  }
+  if (video) removeVideo(video);
 });
 
 $("permission-form").addEventListener("submit", async (event) => {
@@ -586,27 +717,26 @@ $("permission-form").addEventListener("submit", async (event) => {
   }
 });
 
-// ---------- Trình phát ----------
-let playing = null; // { video, issuedAt, renewing }
+// ---------- Trình phát (nằm ngay trong trang chi tiết) ----------
+let playing = null; // { video, issuedAt, renewing, duration }
 async function playbackUrl(video) {
   const data = await api(`/api/videos/${video.id}/playback`);
   playing = { video, issuedAt: Date.now(), renewing: false, duration: data.duration_ms };
   return data.url;
 }
 
-async function openPlayer(video) {
+async function loadPlayer(video, start) {
   const player = $("player");
-  $("player-title").textContent = video.title;
+  $("player-box").hidden = false;
   $("player-note").textContent = "Đang lấy liên kết phát…";
-  $("player-modal").hidden = false;
-  $("player-close").focus();
   try {
     const [url, poster] = await Promise.all([playbackUrl(video), thumbnailUrl(video).catch(() => "")]);
+    if (playerFor !== video.id) return; // người dùng đã chuyển sang video khác trong lúc chờ
     if (poster) player.poster = poster;
     player.src = url;
-    player.play().catch(() => {});
-    const seconds = playing.duration == null ? "" : `Thời lượng ${(playing.duration / 1000).toFixed(1)} giây. `;
-    $("player-note").textContent = seconds + "Liên kết phát tự gia hạn khi bạn xem lâu.";
+    if (start) player.play().catch(() => {});
+    if (playing.duration != null) $("detail-duration").textContent = clock(playing.duration);
+    $("player-note").textContent = "Liên kết phát chỉ sống 2 phút và tự gia hạn khi bạn xem lâu.";
   } catch (error) {
     $("player-note").textContent = error.message;
   }
@@ -614,7 +744,7 @@ async function openPlayer(video) {
 
 // Liên kết phát chỉ sống 2 phút: xin liên kết mới và phát tiếp đúng vị trí đang xem.
 async function renewPlayback() {
-  if (!playing || playing.renewing || $("player-modal").hidden) return;
+  if (!playing || playing.renewing || $("watch").hidden) return;
   playing.renewing = true;
   const player = $("player");
   const position = player.currentTime;
@@ -640,24 +770,27 @@ $("player").addEventListener("play", renewIfOld);
 function closePlayer() {
   const player = $("player");
   playing = null;
+  playerFor = null;
   player.pause();
   player.removeAttribute("src");
   player.removeAttribute("poster");
   player.load();
-  $("player-modal").hidden = true;
+  $("player-box").hidden = true;
 }
-$("player-close").addEventListener("click", closePlayer);
-$("player-modal").addEventListener("click", (event) => { if (event.target === $("player-modal")) closePlayer(); });
-document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !$("player-modal").hidden) closePlayer(); });
 
 // ---------- Tải lên ----------
 function track(step, failed = false) {
-  const order = ["create", "send", "queue", "process", "ready"];
-  const index = order.indexOf(step);
   $("tracker-panel").hidden = false;
-  document.querySelectorAll("#tracker li").forEach((item, position) => {
-    item.className = position < index ? "done" : position === index ? (failed ? "failed" : step === "ready" ? "done" : "active") : "";
-  });
+  markSteps($("tracker"), step, failed);
+}
+
+// Hai pha có số đo riêng: "upload" đo bằng số byte trình duyệt đã gửi, "transcode" đo bằng phần trăm FFmpeg báo về.
+function setPhase(name, state, figure, percent = null) {
+  $("phase-" + name).dataset.state = state; // wait | active | done | failed
+  $(name + "-figure").textContent = figure;
+  const bar = $(name + "-progress");
+  bar.classList.toggle("busy", state === "active" && percent === null);
+  bar.firstElementChild.style.width = state === "done" ? "100%" : percent === null ? "" : percent + "%";
 }
 
 // created.upload_method: "PUT" = gửi thẳng lên máy chủ của trang; "POST" = form ký sẵn gửi thẳng tới S3.
@@ -666,7 +799,7 @@ function sendFile(created, file, onProgress) {
     const form = created.upload_method === "POST";
     const request = new XMLHttpRequest();
     request.open(form ? "POST" : "PUT", created.upload_url);
-    request.upload.addEventListener("progress", (event) => { if (event.lengthComputable) onProgress(event.loaded / event.total); });
+    request.upload.addEventListener("progress", (event) => { if (event.lengthComputable) onProgress(event.loaded, event.total); });
     request.addEventListener("load", () => {
       if (request.status === (form ? 204 : 201)) resolve();
       else if (request.status === 413 || request.responseText.includes("EntityTooLarge")) reject(new Error(errors.upload_too_large));
@@ -686,10 +819,21 @@ function sendFile(created, file, onProgress) {
   });
 }
 
+const typeNames = { "video/mp4": "MP4", "video/webm": "WebM", "video/quicktime": "MOV" };
 function showFile() {
   const file = $("file").files[0];
-  $("file-name").textContent = file ? `${file.name} (${(file.size / 1_000_000).toFixed(1)} MB)` : "Kéo video vào đây hoặc bấm để chọn";
-  if (file && !$("title").value.trim()) $("title").value = file.name.replace(/\.[^.]+$/, "").slice(0, 200);
+  $("file-card").hidden = !file;
+  $("dropzone").classList.toggle("compact", Boolean(file));
+  if (!file) return;
+  $("file-name").textContent = file.name;
+  $("file-size").textContent = sizeText(file.size);
+  $("file-type").textContent = typeNames[file.type] || "định dạng không được hỗ trợ";
+  let problem = "";
+  if (!typeNames[file.type]) problem = "Chỉ nhận video MP4, WebM hoặc MOV.";
+  else if (file.size > maxUploadBytes) problem = `File lớn hơn giới hạn ${megabytes()} MB.`;
+  $("file-warning").textContent = problem;
+  $("file-warning").hidden = !problem;
+  if (!$("title").value.trim()) $("title").value = file.name.replace(/\.[^.]+$/, "").slice(0, 200);
 }
 $("file").addEventListener("change", showFile);
 const dropzone = $("dropzone");
@@ -710,23 +854,30 @@ async function follow(videoId, title) {
     const status = await api(`/api/videos/${videoId}/status`).catch(() => null);
     if (status) {
       details.set(videoId, { progress: status.progress_percent, error: status.error_code });
-      if (status.status === "PROCESSING" || status.status === "RETRYING") {
+      if (status.status === "QUEUED") {
+        track("queue");
+        setPhase("transcode", "active", "Đang xếp hàng");
+      } else if (status.status === "PROCESSING" || status.status === "RETRYING") {
+        const percent = Number.isInteger(status.progress_percent) ? status.progress_percent : null;
         track("process");
-        note.textContent = Number.isInteger(status.progress_percent) ? `Đang chuyển mã: ${status.progress_percent}%` : "Đang kiểm tra file.";
+        setPhase("transcode", "active", status.status === "RETRYING" ? "Đang thử lại" : percent === null ? "Đang kiểm tra file" : `${percent}%`, percent);
+        note.textContent = "Máy chủ đang chuyển mã. Bạn có thể rời trang; video sẽ có trong Thư viện khi xong.";
       } else if (status.status === "READY") {
         track("ready");
+        setPhase("transcode", "done", "Hoàn tất");
         note.textContent = "Video đã sẵn sàng. ";
         const watch = document.createElement("button");
         watch.type = "button";
         watch.className = "link";
         watch.textContent = "Xem ngay";
-        watch.addEventListener("click", () => openPlayer({ id: videoId, title }));
+        watch.addEventListener("click", () => refresh().catch(() => {}).then(() => select(videoId)));
         note.append(watch);
         say(`"${title}" đã sẵn sàng để xem.`);
         refresh().catch(() => {});
         return;
       } else if (status.status === "FAILED") {
         track("process", true);
+        setPhase("transcode", "failed", "Thất bại");
         note.textContent = (failures[status.error_code] || "Máy chủ không xử lý được video này.") + " Hãy tải một file khác.";
         say(`"${title}" xử lý thất bại.`, true);
         refresh().catch(() => {});
@@ -745,32 +896,33 @@ $("upload-form").addEventListener("submit", async (event) => {
     say(`Chọn video có dung lượng tối đa ${megabytes()} MB.`, true);
     return;
   }
-  const bar = $("upload-progress");
   const note = $("upload-note");
   $("upload-button").disabled = true;
-  bar.hidden = false;
-  bar.firstElementChild.style.width = "0%";
+  $("tracker-title").textContent = title;
+  note.textContent = "";
   try {
     track("create");
-    note.textContent = "Đang tạo lượt tải lên…";
+    setPhase("upload", "active", "Đang chuẩn bị", 0);
+    setPhase("transcode", "wait", "Chưa bắt đầu", 0);
     const created = await api("/api/videos", { method: "POST", body: JSON.stringify({ title, mime_type: file.type, size_bytes: file.size }) });
     track("send");
-    await sendFile(created, file, (part) => {
-      bar.firstElementChild.style.width = Math.round(part * 100) + "%";
-      note.textContent = `Đang gửi file: ${Math.round(part * 100)}%`;
+    await sendFile(created, file, (loaded, total) => {
+      const percent = Math.round((loaded / total) * 100);
+      setPhase("upload", "active", `${sizeText(loaded)} / ${sizeText(total)}, ${percent}%`, percent);
     });
+    setPhase("upload", "done", `Đã gửi ${sizeText(file.size)}`);
     await api(`/api/videos/${created.video_id}/complete`, { method: "POST" });
     track("queue");
+    setPhase("transcode", "active", "Đang xếp hàng");
     note.textContent = "Đã gửi xong. Đang chờ tới lượt xử lý.";
-    bar.hidden = true;
     event.target.reset();
     showFile();
     refresh().catch(() => {});
     follow(created.video_id, title);
   } catch (error) {
-    bar.hidden = true;
-    note.textContent = "";
-    $("tracker-panel").hidden = true;
+    // Lỗi trước khi vào hàng đợi: báo ngay tại pha gửi file, không để thanh tiến độ treo.
+    setPhase("upload", "failed", "Không gửi được", 0);
+    note.textContent = error.message;
     say(error.message, true);
   } finally {
     $("upload-button").disabled = false;
@@ -861,7 +1013,8 @@ fetch("/api/config")
   .then((config) => {
     if (Number.isInteger(config.max_upload_bytes)) maxUploadBytes = config.max_upload_bytes;
     if (config.auth_provider) provider = config.auth_provider;
-    $("file-hint").textContent = `Tối đa ${megabytes()} MB, dài không quá 30 giây.`;
+    $("file-hint").textContent = `MP4, WebM hoặc MOV. Tối đa ${megabytes()} MB, dài không quá 30 giây.`;
+    $("welcome-limit").textContent = `${megabytes()} MB, 30 giây`;
     $("guide-limit").textContent = `Dung lượng tối đa ${megabytes()} MB.`;
     applyAuth();
   })

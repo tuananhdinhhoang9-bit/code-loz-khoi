@@ -8,20 +8,67 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='portal.css') }}" />
     <script src="{{ url_for('static', filename='portal.js') }}" defer></script>
   </head>
-  <body>
+  <body class="guest">
     <svg hidden aria-hidden="true">
       <defs>
-        <symbol id="i-home" viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" /><rect x="9" y="2" width="5" height="5" /><rect x="2" y="9" width="5" height="5" /><rect x="9" y="9" width="5" height="5" /></symbol>
-        <symbol id="i-film" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1" /><path d="M6.500 6v4l3.500-2z" /></symbol>
-        <symbol id="i-up" viewBox="0 0 16 16"><path d="M8 11V3M5 6l3-3 3 3M3 13h10" /></symbol>
-        <symbol id="i-user" viewBox="0 0 16 16"><circle cx="8" cy="5.500" r="2.500" /><path d="M3 14c.600-2.600 2.600-4 5-4s4.400 1.400 5 4" /></symbol>
-        <symbol id="i-users" viewBox="0 0 16 16"><circle cx="6" cy="6" r="2.200" /><path d="M2 13c.500-2.200 2-3.400 4-3.400s3.500 1.200 4 3.400M11 4a2.200 2.200 0 010 4.300M12 10c1.200.400 1.800 1.400 2 3" /></symbol>
-        <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" /><path d="M8 7.300v3.700M8 5v.2" /></symbol>
-        <symbol id="i-help" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" /><path d="M6.500 6.300a1.600 1.600 0 113 .700c-.500.500-1.500.800-1.500 1.800M8 11.300v.2" /></symbol>
-        <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.500" /><path d="M10.500 10.500L14 14" /></symbol>
+        <symbol id="i-home" viewBox="0 0 20 20"><path d="M3 9.500L10 3.500l7 6V17H3z" /><path d="M8 17v-4.500h4V17" /></symbol>
+        <symbol id="i-film" viewBox="0 0 20 20"><rect x="2.500" y="4" width="15" height="12" rx="2" /><path d="M8.500 7.800v4.400l3.800-2.200z" /></symbol>
+        <symbol id="i-up" viewBox="0 0 20 20"><path d="M10 13.500V4M6.500 7.500L10 4l3.500 3.500M4 16.500h12" /></symbol>
+        <symbol id="i-user" viewBox="0 0 20 20"><circle cx="10" cy="7" r="3" /><path d="M4 17c.700-3.200 3-5 6-5s5.300 1.800 6 5" /></symbol>
+        <symbol id="i-users" viewBox="0 0 20 20"><circle cx="7.500" cy="7.500" r="2.700" /><path d="M2.500 16.500c.600-2.700 2.500-4.200 5-4.200s4.400 1.500 5 4.200M13.500 5a2.700 2.700 0 010 5.200M15 12.700c1.400.600 2.200 1.900 2.500 3.800" /></symbol>
+        <symbol id="i-info" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" /><path d="M10 9.200v4.300M10 6.500v.2" /></symbol>
+        <symbol id="i-help" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" /><path d="M8.200 8a1.900 1.900 0 113.600.800c-.600.600-1.800.900-1.800 2.100M10 13.800v.2" /></symbol>
+        <symbol id="i-search" viewBox="0 0 20 20"><circle cx="9" cy="9" r="5.500" /><path d="M13.200 13.200L17 17" /></symbol>
+        <symbol id="i-grid" viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1" /><rect x="11" y="3" width="6" height="6" rx="1" /><rect x="3" y="11" width="6" height="6" rx="1" /><rect x="11" y="11" width="6" height="6" rx="1" /></symbol>
+        <symbol id="i-list" viewBox="0 0 20 20"><path d="M7.500 5.500H17M7.500 10H17M7.500 14.500H17M3.500 5.500h.5M3.500 10h.5M3.500 14.500h.5" /></symbol>
+        <symbol id="i-more" viewBox="0 0 20 20"><path d="M5 10h.2M10 10h.2M15 10h.2" stroke-width="2.600" /></symbol>
+        <symbol id="i-back" viewBox="0 0 20 20"><path d="M12 4.500L6.500 10l5.500 5.500" /></symbol>
+        <symbol id="i-lock" viewBox="0 0 20 20"><rect x="4.500" y="9" width="11" height="8" rx="1.500" /><path d="M7 9V6.500a3 3 0 016 0V9" /></symbol>
+        <symbol id="i-queue" viewBox="0 0 20 20"><path d="M4 5.500h12M4 10h12M4 14.500h7" /></symbol>
+        <symbol id="i-cog" viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.600" /><path d="M10 3v2.200M10 14.800V17M3 10h2.200M14.800 10H17M5.100 5.100l1.500 1.500M13.400 13.400l1.500 1.500M5.100 14.900l1.500-1.500M13.400 6.600l1.500-1.500" /></symbol>
+        <symbol id="i-check" viewBox="0 0 20 20"><path d="M4.500 10.500l3.500 3.500 7.500-8" /></symbol>
       </defs>
     </svg>
     <a class="skip-link" href="#main">Đến nội dung chính</a>
+
+    <!-- Màn hình cho người chưa đăng nhập: giới thiệu sản phẩm và đăng nhập. Không hiện dữ liệu hay video nào. -->
+    <section class="welcome" id="welcome" aria-labelledby="welcome-title">
+      <div class="welcome-story">
+        <div class="brand"><i aria-hidden="true"></i>Video Portal</div>
+        <h1 id="welcome-title">Kho video riêng tư,<br />xử lý tự động cho mọi trình duyệt.</h1>
+        <p class="welcome-lead">
+          Tải video lên một lần. Hệ thống chuyển sang MP4, tạo ảnh thu nhỏ, đo thời lượng,
+          và chỉ những người bạn cấp quyền mới xem được.
+        </p>
+
+        <ol class="flow" aria-label="Quy trình xử lý một video">
+          <li><span class="flow-icon"><svg><use href="#i-lock" /></svg></span><strong>Tải lên riêng tư</strong><span>File đi thẳng vào kho kín, không có đường dẫn công khai.</span></li>
+          <li><span class="flow-icon"><svg><use href="#i-queue" /></svg></span><strong>Xếp hàng</strong><span>Mỗi video được ghi nhận một lần, không xử lý trùng.</span></li>
+          <li><span class="flow-icon"><svg><use href="#i-cog" /></svg></span><strong>Chuyển mã</strong><span>FFmpeg tạo MP4 H.264 480p và ảnh thu nhỏ, tự thử lại khi gián đoạn.</span></li>
+          <li><span class="flow-icon"><svg><use href="#i-check" /></svg></span><strong>Sẵn sàng</strong><span>Chỉ công bố khi đã kiểm tra xong; liên kết xem sống 2 phút.</span></li>
+        </ol>
+
+        <dl class="facts">
+          <div><dt>Nhận</dt><dd>MP4, WebM, MOV</dd></div>
+          <div><dt>Giới hạn</dt><dd id="welcome-limit">50 MB, 30 giây</dd></div>
+          <div><dt>Trả về</dt><dd>MP4 480p, ảnh JPG</dd></div>
+        </dl>
+      </div>
+
+      <div class="welcome-sign">
+        <form id="login-form" class="sign-card">
+          <h2>Đăng nhập</h2>
+          <p class="hint">Tài khoản do quản trị viên cấp.</p>
+          <label for="email">Email</label>
+          <input id="email" type="email" autocomplete="username" placeholder="ban@example.com" required />
+          <label for="password">Mật khẩu</label>
+          <input id="password" type="password" autocomplete="current-password" required />
+          <button class="wide">Đăng nhập</button>
+          <p class="hint">Phiên đăng nhập chỉ giữ trong trang này. Tải lại trang là phải đăng nhập lại.</p>
+        </form>
+        <a class="health-link" href="{{ url_for('health') }}">Kiểm tra kết nối máy chủ</a>
+      </div>
+    </section>
 
     <aside class="side" id="sidebar">
       <a class="brand" href="#home"><i aria-hidden="true"></i>Video Portal</a>
@@ -41,14 +88,13 @@
       </nav>
 
       <div class="who">
-        <span class="status-dot" id="status-dot" aria-hidden="true"></span>
+        <span class="avatar" id="avatar" aria-hidden="true"></span>
         <div>
-          <p id="identity">Chưa đăng nhập</p>
+          <p id="identity"></p>
           <p class="status-role" id="role"></p>
         </div>
-        <button id="logout" type="button" class="link" hidden>Đăng xuất</button>
+        <button id="logout" type="button" class="link">Đăng xuất</button>
       </div>
-      <a class="health-link" href="{{ url_for('health') }}">Kiểm tra kết nối máy chủ</a>
     </aside>
 
     <div class="app">
@@ -56,146 +102,187 @@
         <button id="menu-toggle" type="button" class="ghost" aria-controls="sidebar" aria-expanded="false">Menu</button>
         <h1 id="view-title">Tổng quan</h1>
         <label class="search"><svg><use href="#i-search" /></svg><input id="search" type="search" placeholder="Tìm theo tên video" aria-label="Tìm video theo tên" /></label>
-        <a class="button" href="#upload"><svg><use href="#i-up" /></svg>Tải video lên</a>
+        <a class="button" href="#upload"><svg><use href="#i-up" /></svg><span>Tải video lên</span></a>
       </header>
-      <p id="message" class="toast" role="status" aria-live="polite" hidden></p>
 
       <main id="main">
         <!-- Tổng quan -->
-        <section class="view" id="home" data-title="Tổng quan">
-          <div class="gate" id="stats-hint">
-            <p>Đăng nhập để xem tình trạng video của bạn.</p>
-            <a class="button" href="#account">Đăng nhập</a>
+        <section class="view" id="home" data-title="Tổng quan" hidden>
+          <div class="dash">
+            <div class="card pipeline">
+              <header>
+                <h2>Dòng xử lý</h2>
+                <span class="live" id="live-home" hidden>Đang chạy</span>
+              </header>
+              <ol class="stages">
+                <li data-stage="pending"><b id="count-pending">0</b><span>Chờ tải lên xong</span></li>
+                <li data-stage="queued"><b id="count-queued">0</b><span>Xếp hàng</span></li>
+                <li data-stage="processing"><b id="count-processing">0</b><span>Đang chuyển mã</span></li>
+                <li data-stage="ready"><b id="count-ready">0</b><span>Sẵn sàng phát</span></li>
+              </ol>
+              <ul class="running" id="running"></ul>
+            </div>
+            <div class="card metrics">
+              <p class="metric-lead"><b id="stat-total">0</b><span>video trong thư viện</span></p>
+              <ul>
+                <li><span>Sẵn sàng phát</span><b id="stat-ready">0</b></li>
+                <li><span>Đang chờ hoặc xử lý</span><b id="stat-active">0</b></li>
+                <li><span>Xử lý thất bại</span><b id="stat-failed">0</b></li>
+              </ul>
+            </div>
           </div>
-          <div id="home-body" hidden>
-            <div class="panel strip">
-              <div><b id="stat-total">–</b>video trong thư viện</div>
-              <div><b id="stat-ready">–</b>sẵn sàng phát</div>
-              <div><b id="stat-active">–</b>đang chờ hoặc xử lý</div>
-              <div><b id="stat-failed">–</b>xử lý thất bại</div>
-            </div>
 
-            <div class="panel">
-              <header><h2>Dòng xử lý</h2><p>Máy chủ xử lý từng video một. Trang tự cập nhật khi có video đang chạy.</p></header>
-              <div class="board">
-                <div class="lane"><h3>Chờ tải lên xong <span id="count-pending"></span></h3><div id="lane-pending"></div></div>
-                <div class="lane"><h3>Xếp hàng <span id="count-queued"></span></h3><div id="lane-queued"></div></div>
-                <div class="lane"><h3>Đang xử lý <span id="count-processing"></span></h3><div id="lane-processing"></div></div>
-                <div class="lane"><h3>Mới sẵn sàng <span id="count-ready"></span></h3><div id="lane-ready"></div></div>
-              </div>
-            </div>
+          <div class="section-head"><h2>Video gần đây</h2><a href="#library">Mở thư viện</a></div>
+          <div class="recent" id="recent"></div>
 
-            <div class="cols">
-              <div class="panel">
-                <header><h2>Cần bạn xử lý</h2></header>
-                <ul class="rows" id="attention"></ul>
-              </div>
-              <div class="panel">
-                <header><h2>Được chia sẻ với bạn</h2><a href="#library">Mở thư viện</a></header>
-                <ul class="rows" id="shared"></ul>
-              </div>
-            </div>
+          <div class="dash-two">
+            <div class="card"><header><h2>Cần bạn xử lý</h2></header><ul class="rows" id="attention"></ul></div>
+            <div class="card"><header><h2>Được chia sẻ với bạn</h2></header><ul class="rows" id="shared"></ul></div>
           </div>
         </section>
 
         <!-- Thư viện -->
-        <section class="view" id="library" data-title="Thư viện video" hidden>
-          <div class="gate" id="library-gate">
-            <p>Đăng nhập để mở thư viện của bạn.</p>
-            <a class="button" href="#account">Đăng nhập</a>
-          </div>
-          <div class="gate" id="library-empty" hidden>
-            <p>Thư viện còn trống. Tải video đầu tiên của bạn lên, hoặc nhờ người khác chia sẻ video cho bạn.</p>
+        <section class="view" id="library" data-title="Thư viện" hidden>
+          <div class="empty" id="library-empty" hidden>
+            <span class="empty-art" aria-hidden="true"><svg><use href="#i-film" /></svg></span>
+            <h2>Thư viện còn trống</h2>
+            <p>Tải video đầu tiên của bạn lên, hoặc nhờ người khác chia sẻ video cho bạn.</p>
             <a class="button" href="#upload">Tải video lên</a>
           </div>
           <div id="library-body" hidden>
-            <div class="tools">
-              <div class="seg" id="status-filter" role="group" aria-label="Lọc theo trạng thái">
+            <div class="workbar">
+              <div class="tabs" id="status-filter" role="group" aria-label="Lọc theo trạng thái">
                 <button type="button" data-filter="all" data-label="Tất cả" class="on"></button>
                 <button type="button" data-filter="ready" data-label="Sẵn sàng"></button>
                 <button type="button" data-filter="active" data-label="Đang xử lý"></button>
                 <button type="button" data-filter="failed" data-label="Thất bại"></button>
               </div>
-              <div class="seg" id="owner-filter" role="group" aria-label="Lọc theo chủ sở hữu">
-                <button type="button" data-owner="all" class="on">Của tôi và được chia sẻ</button>
-                <button type="button" data-owner="mine">Chỉ của tôi</button>
+              <div class="workbar-tools">
+                <span class="live" id="live" hidden>Đang tự cập nhật</span>
+                <div class="seg" id="owner-filter" role="group" aria-label="Lọc theo chủ sở hữu">
+                  <button type="button" data-owner="all" class="on">Tất cả</button>
+                  <button type="button" data-owner="mine">Của tôi</button>
+                  <button type="button" data-owner="shared">Được chia sẻ</button>
+                </div>
+                <div class="seg icons" id="view-mode" role="group" aria-label="Kiểu hiển thị">
+                  <button type="button" data-mode="grid" aria-label="Dạng lưới" title="Dạng lưới"><svg><use href="#i-grid" /></svg></button>
+                  <button type="button" data-mode="list" aria-label="Dạng danh sách" title="Dạng danh sách"><svg><use href="#i-list" /></svg></button>
+                </div>
+                <button id="refresh" type="button" class="ghost">Làm mới</button>
               </div>
-              <span class="live" id="live" hidden>Đang tự cập nhật</span>
-              <button id="refresh" type="button" class="ghost">Làm mới</button>
+            </div>
+            <div class="media-grid" id="video-grid"></div>
+            <div class="card table-wrap" id="video-list" hidden>
+              <table>
+                <thead><tr><th>Video</th><th>Trạng thái</th><th>Thời lượng</th><th>File gốc</th><th>Tải lên</th><th><span class="sr">Thao tác</span></th></tr></thead>
+                <tbody id="videos"></tbody>
+              </table>
+            </div>
+            <p class="empty-filter" id="no-match" hidden>Không có video nào khớp bộ lọc.</p>
+          </div>
+        </section>
+
+        <!-- Chi tiết video -->
+        <section class="view" id="watch" data-title="Chi tiết video" hidden>
+          <a class="back" href="#library"><svg><use href="#i-back" /></svg>Thư viện</a>
+          <div class="watch">
+            <div class="watch-main">
+              <div class="stage">
+                <div id="player-box" hidden><video id="player" controls playsinline preload="metadata"></video></div>
+                <div class="stage-wait" id="stage-wait">
+                  <span class="st" id="stage-state"></span>
+                  <p id="stage-text"></p>
+                  <div class="progress" id="detail-progress" hidden><i></i></div>
+                </div>
+              </div>
+              <h2 id="detail-title"></h2>
+              <p class="hint" id="player-note"></p>
             </div>
 
-            <div class="split" id="library-split">
-              <div class="panel table-wrap">
-                <table>
-                  <thead>
-                    <tr><th>Video</th><th>Trạng thái</th><th>Thời lượng</th><th>File gốc</th><th>Tải lên</th></tr>
-                  </thead>
-                  <tbody id="videos"></tbody>
-                </table>
+            <aside class="watch-side">
+              <div class="card">
+                <header><h3>Trạng thái xử lý</h3><span class="st" id="video-status"></span></header>
+                <ol class="steps" id="detail-steps">
+                  <li data-step="send">Tải lên</li>
+                  <li data-step="queue">Xếp hàng</li>
+                  <li data-step="process">Chuyển mã</li>
+                  <li data-step="ready">Sẵn sàng</li>
+                </ol>
+                <p class="hint pad-x" id="detail-note"></p>
               </div>
-
-              <aside class="panel detail" id="detail" hidden aria-labelledby="detail-title">
-                <div id="detail-thumb"></div>
-                <h2 id="detail-title"></h2>
-                <dl>
-                  <dt>Trạng thái</dt><dd><span class="st" id="video-status"></span></dd>
+              <div class="card">
+                <header><h3>Thông tin</h3></header>
+                <dl class="meta">
                   <dt>Chủ sở hữu</dt><dd id="detail-owner"></dd>
                   <dt>Thời lượng</dt><dd id="detail-duration"></dd>
                   <dt>File gốc</dt><dd id="detail-size"></dd>
                   <dt>Tải lên</dt><dd id="detail-created"></dd>
+                  <dt>Đầu ra</dt><dd>MP4 H.264, tối đa 480p</dd>
                 </dl>
-                <div class="progress" id="detail-progress" hidden><i></i></div>
-                <p class="hint" id="detail-note"></p>
-                <div class="acts">
-                  <button id="play" type="button">Xem video</button>
-                  <button id="delete-video" type="button" class="danger" hidden>Xoá video</button>
-                </div>
-                <form id="permission-form" hidden>
-                  <hr />
-                  <label for="viewer">Chia sẻ với email</label>
+              </div>
+              <form class="card" id="permission-form" hidden>
+                <header><h3>Chia sẻ</h3></header>
+                <div class="pad">
+                  <label for="viewer">Email tài khoản của người xem</label>
                   <input id="viewer" type="email" maxlength="128" placeholder="nguoixem@example.com" required />
                   <div class="acts">
-                    <button name="action" value="grant" class="ghost">Cấp quyền xem</button>
+                    <button name="action" value="grant">Cấp quyền xem</button>
                     <button name="action" value="revoke" class="ghost">Thu hồi quyền</button>
                   </div>
                   <p class="hint">Người xem phải có tài khoản trên hệ thống. Thu hồi quyền có hiệu lực ngay với lượt xem mới.</p>
-                </form>
-              </aside>
-            </div>
+                </div>
+              </form>
+              <button id="delete-video" type="button" class="danger" hidden>Xoá video này</button>
+            </aside>
           </div>
         </section>
 
         <!-- Tải lên -->
         <section class="view" id="upload" data-title="Tải video lên" hidden>
-          <div class="gate" id="upload-gate">
-            <p>Đăng nhập để tải video lên.</p>
-            <a class="button" href="#account">Đăng nhập</a>
-          </div>
-          <div class="up">
-            <form id="upload-form" class="panel" hidden>
-              <header><h2>Video mới</h2></header>
-              <div class="pad">
-                <label for="title">Tên video</label>
-                <input id="title" maxlength="200" required placeholder="Ví dụ: Giới thiệu nhóm" />
-                <label for="file">File video</label>
-                <label class="dropzone" id="dropzone" for="file">
-                  <svg><use href="#i-up" /></svg>
-                  <strong id="file-name">Kéo video vào đây hoặc bấm để chọn</strong>
-                  <span>MP4, WebM hoặc MOV</span>
-                  <input id="file" type="file" accept="video/mp4,video/webm,video/quicktime" aria-describedby="file-hint" required />
-                </label>
-                <p class="hint" id="file-hint">Tối đa 50 MB, dài không quá 30 giây.</p>
-                <div class="progress" id="upload-progress" hidden><i></i></div>
-                <div class="acts"><button id="upload-button">Tải video lên</button></div>
+          <div class="uploader">
+            <form id="upload-form">
+              <label class="dropzone" id="dropzone" for="file">
+                <span class="drop-art" aria-hidden="true"><svg><use href="#i-up" /></svg></span>
+                <strong>Kéo video vào đây</strong>
+                <span>hoặc bấm để chọn file từ máy</span>
+                <span class="drop-rule" id="file-hint">MP4, WebM hoặc MOV. Tối đa 50 MB, dài không quá 30 giây.</span>
+                <input id="file" type="file" accept="video/mp4,video/webm,video/quicktime" aria-describedby="file-hint" required />
+              </label>
+
+              <div class="card file-card" id="file-card" hidden>
+                <span class="file-art" aria-hidden="true"><svg><use href="#i-film" /></svg></span>
+                <div>
+                  <strong id="file-name"></strong>
+                  <p class="hint"><span id="file-size"></span>, <span id="file-type"></span></p>
+                  <p class="warn" id="file-warning" hidden></p>
+                </div>
+                <label class="button ghost" for="file">Chọn file khác</label>
+              </div>
+
+              <div class="card up-fields">
+                <div>
+                  <label for="title">Tên video</label>
+                  <input id="title" maxlength="200" required placeholder="Ví dụ: Giới thiệu nhóm" />
+                </div>
+                <button id="upload-button">Tải video lên</button>
               </div>
             </form>
-            <div class="panel" id="tracker-panel" hidden>
-              <header><h2>Tiến trình</h2></header>
-              <ol class="steps" id="tracker">
+
+            <div class="card progress-card" id="tracker-panel" hidden>
+              <header><h2 id="tracker-title"></h2></header>
+              <div class="phase" id="phase-upload" data-state="wait">
+                <div class="phase-head"><strong>1. Gửi file lên máy chủ</strong><span id="upload-figure"></span></div>
+                <div class="progress" id="upload-progress"><i></i></div>
+              </div>
+              <div class="phase" id="phase-transcode" data-state="wait">
+                <div class="phase-head"><strong>2. Chuyển mã trên máy chủ</strong><span id="transcode-figure"></span></div>
+                <div class="progress" id="transcode-progress"><i></i></div>
+              </div>
+              <ol class="steps across" id="tracker">
                 <li data-step="create">Tạo lượt tải</li>
                 <li data-step="send">Gửi file</li>
                 <li data-step="queue">Xếp hàng</li>
-                <li data-step="process">Xử lý</li>
+                <li data-step="process">Chuyển mã</li>
                 <li data-step="ready">Sẵn sàng</li>
               </ol>
               <p class="hint pad-x" id="upload-note"></p>
@@ -205,18 +292,7 @@
 
         <!-- Tài khoản -->
         <section class="view" id="account" data-title="Tài khoản của tôi" hidden>
-          <form id="login-form" class="panel narrow">
-            <header><h2>Đăng nhập</h2></header>
-            <div class="pad">
-              <label for="email">Email</label>
-              <input id="email" type="email" autocomplete="username" placeholder="ban@example.com" required />
-              <label for="password">Mật khẩu</label>
-              <input id="password" type="password" autocomplete="current-password" required />
-              <div class="acts"><button>Đăng nhập</button></div>
-              <p class="hint">Tài khoản do quản trị viên cấp. Sau khi tải lại trang, bạn cần đăng nhập lại.</p>
-            </div>
-          </form>
-          <div id="profile" class="panel narrow" hidden>
+          <div id="profile" class="card narrow">
             <header><h2 id="profile-name"></h2></header>
             <div class="pad">
               <p class="hint" id="profile-role"></p>
@@ -235,11 +311,12 @@
 
         <!-- Quản lý người dùng -->
         <section class="view" id="users" data-title="Quản lý người dùng" hidden>
-          <div class="gate" id="users-gate">
-            <p>Chỉ quản trị viên mới quản lý được tài khoản.</p>
+          <div class="empty" id="users-gate">
+            <h2>Chỉ dành cho quản trị viên</h2>
+            <p>Tài khoản của bạn không có quyền quản lý người dùng.</p>
           </div>
           <div id="users-body" hidden>
-            <form id="user-form" class="panel">
+            <form id="user-form" class="card">
               <header><h2>Tạo tài khoản mới</h2></header>
               <div class="pad">
                 <div class="form-row">
@@ -257,7 +334,7 @@
                 <p class="hint">Hãy gửi mật khẩu cho người dùng qua kênh riêng. Họ có thể tự đổi trong mục Tài khoản của tôi.</p>
               </div>
             </form>
-            <div class="panel">
+            <div class="card">
               <header><h2>Tài khoản hiện có</h2></header>
               <ul class="user-list" id="user-list"></ul>
             </div>
@@ -266,7 +343,7 @@
 
         <!-- Giới thiệu -->
         <section class="view prose" id="about" data-title="Giới thiệu" hidden>
-          <div class="panel pad">
+          <div class="card pad-all">
             <h2>Video Portal là gì?</h2>
             <p>
               Một không gian riêng để lưu, xử lý và chia sẻ video ngắn. Video bạn tải lên không công khai:
@@ -295,16 +372,15 @@
 
         <!-- Hướng dẫn -->
         <section class="view prose" id="guide" data-title="Hướng dẫn" hidden>
-          <div class="panel pad">
-            <h2>Bắt đầu trong bốn bước</h2>
+          <div class="card pad-all">
+            <h2>Bắt đầu trong ba bước</h2>
             <ol>
-              <li><strong>Đăng nhập</strong> ở mục <a href="#account">Tài khoản của tôi</a> bằng email và mật khẩu được cấp.</li>
-              <li><strong>Tải video lên</strong> ở mục <a href="#upload">Tải video lên</a>: đặt tên, chọn file, bấm nút tải.</li>
-              <li><strong>Chờ xử lý</strong>: tiến trình hiện ngay bên cạnh và trong <a href="#home">Tổng quan</a>, thường dưới một phút.</li>
-              <li><strong>Xem video</strong>: khi trạng thái là Sẵn sàng, mở <a href="#library">Thư viện</a> và bấm vào ảnh thu nhỏ.</li>
+              <li><strong>Tải video lên</strong> ở mục <a href="#upload">Tải video lên</a>: thả file vào khung, đặt tên, bấm nút tải.</li>
+              <li><strong>Chờ xử lý</strong>: tiến độ gửi file và tiến độ chuyển mã hiện ngay trên trang, thường dưới một phút.</li>
+              <li><strong>Xem và chia sẻ</strong>: mở video trong <a href="#library">Thư viện</a> để xem, rồi nhập email người xem để cấp quyền.</li>
             </ol>
           </div>
-          <div class="panel pad">
+          <div class="card pad-all">
             <h2>Giới hạn của file</h2>
             <ul>
               <li>Định dạng: MP4, WebM hoặc MOV.</li>
@@ -312,20 +388,13 @@
               <li>Thời lượng tối đa 30 giây. Video dài hơn vẫn tải lên được nhưng sẽ báo Xử lý thất bại.</li>
             </ul>
           </div>
-          <div class="panel pad">
-            <h2>Chia sẻ và thu hồi</h2>
-            <p>
-              Trong Thư viện, bấm vào video của bạn rồi nhập email tài khoản của người xem và bấm Cấp quyền xem.
-              Người đó sẽ thấy video trong thư viện của họ. Bấm Thu hồi quyền để dừng chia sẻ.
-            </p>
-          </div>
-          <div class="panel pad">
+          <div class="card pad-all">
             <h2>Câu hỏi thường gặp</h2>
             <dl>
               <dt>Vì sao video báo Xử lý thất bại?</dt>
               <dd>Thường do video dài hơn 30 giây, định dạng không được hỗ trợ hoặc file bị hỏng. Hãy tải một file khác.</dd>
               <dt>Video đang phát thì dừng lại?</dt>
-              <dd>Liên kết phát hết hạn sau 2 phút. Trình phát tự xin liên kết mới; nếu không, đóng và mở lại video.</dd>
+              <dd>Liên kết phát hết hạn sau 2 phút. Trình phát tự xin liên kết mới; nếu không, mở lại video từ Thư viện.</dd>
               <dt>Tôi quên mật khẩu?</dt>
               <dd>Liên hệ quản trị viên để được đặt lại mật khẩu.</dd>
               <dt>Ai tạo được tài khoản mới?</dt>
@@ -336,15 +405,7 @@
       </main>
     </div>
 
-    <div class="modal" id="player-modal" hidden role="dialog" aria-modal="true" aria-labelledby="player-title">
-      <div class="modal-body">
-        <div class="modal-head">
-          <h2 id="player-title"></h2>
-          <button id="player-close" type="button" class="ghost">Đóng</button>
-        </div>
-        <video id="player" controls playsinline preload="metadata"></video>
-        <p class="hint" id="player-note"></p>
-      </div>
-    </div>
+    <div class="menu" id="item-menu" role="menu" hidden></div>
+    <p id="message" class="toast" role="status" aria-live="polite" hidden></p>
   </body>
 </html>

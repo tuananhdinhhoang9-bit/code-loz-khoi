@@ -547,8 +547,17 @@ AWS CLI 2.41.2 (49 MB MSI from `awscli.amazonaws.com`, Authenticode signature Va
 - **`terraform plan` -> `Plan: 54 to add, 0 to change, 0 to destroy.`** No errors or warnings. Key values: VPC `10.20.0.0/16`, public subnets in `2a`/`2b`, RDS `db.t4g.micro` engine `18`, 20 GB, not publicly accessible, single-AZ; both ECS services `desired_count = 0`; certificate for `video.uploadmdm.id.vn`. The saved plan and its text output were deleted afterwards (they contain the account ID); no state file exists.
 - A successful plan does **not** show Free-plan or verification restrictions; those appear only at `apply`.
 
+#### First AWS resource: ACM certificate (owner approved this single step)
+- `terraform plan -target=aws_acm_certificate.site` -> `Plan: 1 to add`; `terraform apply` of that saved plan -> **`Apply complete! Resources: 1 added, 0 changed, 0 destroyed.`** (creation took 17 s; the "Applied changes may be incomplete" warning is the normal `-target` notice).
+- Real resource: ACM certificate `9ee301d5-24ad-47d0-a6e0-92709ef7b99f` in `ap-southeast-2` for `video.uploadmdm.id.vn`, type `AMAZON_ISSUED`, not exportable, not in use. Status right after creation: **`PENDING_VALIDATION`**.
+- DNS record the owner must add at the registrar (type CNAME): name `_27e3d71429cea22ebf345df1fcd8bbb9.video.uploadmdm.id.vn.` -> value `_62354f3b3e27523844f0abf7bf46c086.wzccmgtwzk.acm-validations.aws.` It does not touch the existing `video` A record that serves the VPS. At the time of writing the name does not resolve yet.
+- `infra/aws/terraform.tfstate` now exists locally (gitignored; holds this one resource and no secret yet). It is the only record Terraform has of what it created: do not delete it.
+- Cost: not looked up in the price list today; to the best of my knowledge public, non-exportable ACM certificates carry no charge. Nothing else exists in the account from this project.
+- Not done: the other 53 resources, any image, any task.
+
 #### Still BLOCKED for Phase 09
 1. ~~Command-line credentials and `terraform plan`~~ done (see above). Credentials expire with the console session and must be renewed with `aws login`.
+1b. Owner adds the certificate validation CNAME; then check `aws acm list-certificates` shows `ISSUED`.
 2. Confirmation that the Free plan permits the RDS, ALB, Fargate and Cognito resources in `infra/aws/`.
 3. GitHub repository URL -> push, then a workflow to build and push the two images.
 4. Owner approval of the first paid `apply`, with the plan output and the cost table in front of them.

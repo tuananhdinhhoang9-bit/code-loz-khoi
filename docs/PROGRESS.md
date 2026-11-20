@@ -540,8 +540,15 @@ AWS CLI 2.41.2 (49 MB MSI from `awscli.amazonaws.com`, Authenticode signature Va
 - Sydney prices from the public AWS Price List (published 2026-11-11 to 2026-11-19): Fargate 0.04856 USD/vCPU-hour and 0.00532 USD/GB-hour; ALB 0.0252 USD/hour; public IPv4 0.005 USD/hour; RDS `db.t4g.micro` 0.025 USD/hour; gp3 0.138 USD/GB-month. Always-on illustration for the design: about 0.144 USD/hour, about 108 USD/month, before S3/SQS/logs/secrets/ECR/backups/egress. Table in `infra/aws/README.md`.
 - `aws sts get-caller-identity --region ap-southeast-2` -> still `NoCredentials`: the owner has not yet re-run the sign-in for Sydney.
 
+#### `terraform plan` PASS (same day, after the owner signed in for Sydney)
+- The owner ran `aws login --region ap-southeast-2`, selected their session and confirmed the region prompt. `aws sts get-caller-identity` -> an assumed role named `AccountFullAccessRole` (not the root user). Credentials are short-lived and cached by the CLI under the Windows profile; no access key was created and none is in the repository.
+- Read-only inventory of the account in `ap-southeast-2`: one default VPC; 0 EC2 instances, Elastic IPs, load balancers, ECS clusters, RDS instances/clusters, S3 buckets, SQS queues, Cognito pools, ECR repositories, secrets. AZs `2a`, `2b`, `2c` available.
+- RDS: PostgreSQL 17.7–17.11 and 18.1–18.6 are offered; `db.t4g.micro` is orderable for 18.6 (gp3 included) and for 17.11. `db_engine_version` default changed from `17` to `18` because the project's own test runs used 18.7.
+- **`terraform plan` -> `Plan: 54 to add, 0 to change, 0 to destroy.`** No errors or warnings. Key values: VPC `10.20.0.0/16`, public subnets in `2a`/`2b`, RDS `db.t4g.micro` engine `18`, 20 GB, not publicly accessible, single-AZ; both ECS services `desired_count = 0`; certificate for `video.uploadmdm.id.vn`. The saved plan and its text output were deleted afterwards (they contain the account ID); no state file exists.
+- A successful plan does **not** show Free-plan or verification restrictions; those appear only at `apply`.
+
 #### Still BLOCKED for Phase 09
-1. Owner runs `aws login --region ap-southeast-2` and selects their session -> then `terraform plan`.
+1. ~~Command-line credentials and `terraform plan`~~ done (see above). Credentials expire with the console session and must be renewed with `aws login`.
 2. Confirmation that the Free plan permits the RDS, ALB, Fargate and Cognito resources in `infra/aws/`.
 3. GitHub repository URL -> push, then a workflow to build and push the two images.
 4. Owner approval of the first paid `apply`, with the plan output and the cost table in front of them.

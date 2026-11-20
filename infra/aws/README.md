@@ -1,6 +1,6 @@
 # Terraform cho AWS (Phase 08)
 
-**Trạng thái: đã `fmt`, `init`, `validate`; CHƯA `plan`, CHƯA `apply`.** Không có tài nguyên AWS nào tồn tại nhờ thư mục này. Thiết kế: `docs/AWS_ARCHITECTURE.md`, quyết định: ADR-021, ADR-023. Các file `.tf` ở thư mục cha `infra/` là bản GCP đã lưu trữ, không liên quan.
+**Trạng thái: đã `fmt`, `init`, `validate` và `plan` (2026-11-20: `Plan: 54 to add, 0 to change, 0 to destroy`); CHƯA `apply`.** Không có tài nguyên AWS nào tồn tại nhờ thư mục này. Thiết kế: `docs/AWS_ARCHITECTURE.md`, quyết định: ADR-021, ADR-023. Các file `.tf` ở thư mục cha `infra/` là bản GCP đã lưu trữ, không liên quan.
 
 ## Tạo ra những gì (48 khối `resource`)
 
@@ -18,7 +18,8 @@
 1. Cần quyền AWS ở dòng lệnh. Dùng AWS CloudShell (đã đăng nhập sẵn) hoặc đăng nhập SSO; **không** tạo access key cho tài khoản root và không ghi key vào file nào.
 2. `cp terraform.tfvars.example terraform.tfvars` rồi điền `domain_name`.
 3. Region là `ap-southeast-2` (Sydney): tài khoản AWS của dự án là một "project" đặt ở đó và từ chối đăng nhập vào Singapore. Đăng nhập dòng lệnh: `aws login --region ap-southeast-2`.
-4. Chưa kiểm chứng (kiểm tra ở bước `plan`/`apply`): gói Free plan có cho tạo các dịch vụ này không; `db.t4g.micro` và PostgreSQL `17` có ở region không; tài khoản đã qua bước xác minh chưa.
+4. Đã kiểm tra bằng lệnh chỉ đọc (2026-11-20): `db.t4g.micro` đặt được cho PostgreSQL 18.6 và 17.11 ở Sydney; tài khoản chưa có tài nguyên nào ngoài VPC mặc định.
+5. Chưa kiểm chứng (chỉ lộ ra khi `apply`): gói Free plan có cho tạo các dịch vụ này không; tài khoản đang trong giai đoạn xác minh có bị chặn tạo tài nguyên nào không; RDS có nhận `engine_version = "18"` (chỉ ghi phiên bản chính) không.
 
 ## Trình tự (mỗi lệnh `apply` phải được chủ dự án đồng ý trước)
 

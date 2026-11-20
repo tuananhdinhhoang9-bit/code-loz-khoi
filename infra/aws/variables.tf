@@ -81,9 +81,9 @@ variable "db_instance_class" {
 }
 
 variable "db_engine_version" {
-  description = "Phiên bản PostgreSQL trên RDS. Giả định; kiểm tra phiên bản có ở region trước khi apply."
+  description = "Phiên bản chính của PostgreSQL trên RDS. 18 là bản bộ test của dự án đã chạy (18.7); Sydney có 18.6 cho db.t4g.micro (kiểm tra 2026-11-20)."
   type        = string
-  default     = "17"
+  default     = "18"
 }
 
 variable "db_backup_days" {

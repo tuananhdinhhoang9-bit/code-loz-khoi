@@ -9,7 +9,7 @@ region      = "ap-southeast-2"
 
 # Kích thước (ảnh hưởng chi phí)
 # db_instance_class = "db.t4g.micro"
-# db_engine_version = "17"
+# db_engine_version = "18"
 # worker_cpu        = 1024
 # worker_memory     = 2048
 

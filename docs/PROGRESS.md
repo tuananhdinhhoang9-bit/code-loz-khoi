@@ -745,6 +745,20 @@ The owner signed in with `az login` themselves. Everything below was read-only; 
 - Checks: `terraform fmt -check` and `validate` pass after the changes (region default, provider registration mode). No application code changed; application tests not re-run.
 - Not verified: remaining credit; quota; any real resource creation; the Entra external tenant; latency from Vietnam to `malaysiawest`.
 - Next: Phase 09 (`prompts/09-AZURE-DEPLOY.md`). It starts with paid and account-changing steps, so it needs the owner's explicit approval: registering the nine providers, then `apply` of the 32-resource foundation.
+
+### 2026-11-21 — Azure Phase 09 (part 1): foundation applied — app and jobs BLOCKED on images
+The owner approved doing the whole deployment ("làm all luôn"), with the condition that the credit must last past the presentation next Wednesday. Decisions: ADR-028.
+- Nine resource providers registered on the subscription (all `Registered` at 12:56).
+- **`terraform apply` of the foundation: `Apply complete! Resources: 32 added, 0 changed, 0 destroyed`**, 12:57:04 -> 13:04:45 local time, region `malaysiawest`. Slowest: PostgreSQL flexible server 5 m 05 s (version 18, B1ms, created without error), Container Apps environment 3 m 40 s, Key Vault 2 m 29 s. `az resource list` shows the expected types in `videoportal-rg`. State is local and gitignored.
+- Image build, two refusals by Azure and the outcome:
+  - `az acr build` on the registry in `malaysiawest`: `NoRegisteredProviderFound … registries/listBuildSourceUploadUrl` — ACR Tasks does not exist in that region.
+  - A temporary registry in `japaneast` (separate resource group): `TasksOperationsNotAllowed` — ACR Tasks is not permitted for this subscription. The temporary registry and its resource group were deleted (the group was empty when deletion was requested).
+  - A throwaway Linux VM to run Docker: `SkuNotAvailable` for `Standard_B2s` in `malaysiawest`, `japaneast`, `centralindia` and for `Standard_B2ats_v2` in `japaneast`; `QuotaExceeded` for `Standard_D2as_v5`. No VM was created; the one-time SSH key was deleted.
+  - Owner's choice (asked in the session): GitHub Actions pushes straight to the registry. `infra/azure/github.tf` applied: `Apply complete! Resources: 3 added` (identity `videoportal-deploy`, federated credential for the `main` branch, role `AcrPush`). `.github/workflows/ci.yml` has a new `images` job (and `workflow_dispatch`); it does nothing until four repository secrets exist. Their values are in the gitignored file `.env.github`. **The job has not run successfully yet.**
+- Drift caught before it was applied: the second plan wanted to remove the `Microsoft.Storage` service endpoint that PostgreSQL had added to its subnet; the endpoint is now declared in `network.tf` and the plan showed `0 to change`.
+- **Cost correction.** Azure created a Standard load balancer (2 rules) and a Standard public IP for the environment in the managed resource group `ME_videoportal-env_…`. At list price (0.025 and 0.005 USD/h) that adds about 22 USD/month, so the fixed part is about **49 USD/month, about 1.6 USD/day** — not the 27 estimated before the apply. From list prices and real resources, not from a bill: Cost Management has no data yet for resources created minutes ago. At that rate, four days cost about 6.5 USD and eleven days about 18 USD.
+- Not created yet: the `api` app and the two jobs (`deploy_apps` is still false); the Entra external tenant; DNS changes. The VPS was not touched.
+- BLOCKED: building the images needs the owner to add four secrets in the GitHub repository settings (names in `.github/workflows/ci.yml`, values in `.env.github`), then one run of the `ci` workflow on `main`. After that: `apply` with `deploy_apps = true` and the image tag, `init-db`, first checks on the default hostname.
 2. Confirmation that the Free plan permits the RDS, ALB, Fargate and Cognito resources in `infra/aws/`.
 3. GitHub repository URL -> push, then a workflow to build and push the two images.
 4. Owner approval of the first paid `apply`, with the plan output and the cost table in front of them.

@@ -1,10 +1,14 @@
-# Chạy test ở mọi lần push và pull request. Không có secret nào trong kho.
-# Job build và deploy image lên Azure thuộc Phase 12 (docs/PHASES.md) và chưa được viết.
+# Chạy test ở mọi lần push và pull request; trên nhánh main thì build hai image và đẩy lên Azure Container Registry.
+# Không có mật khẩu hay khoá nào: job `images` đổi token OIDC của GitHub lấy token Azure (infra/azure/github.tf).
+# Secret của kho (Settings > Secrets and variables > Actions), đều là ID chứ không phải mật khẩu:
+#   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID, AZURE_REGISTRY (tên registry, không kèm .azurecr.io)
+# Chưa đặt secret thì job `images` chỉ ghi một thông báo và kết thúc. Cập nhật app và job trên Azure thuộc Phase 12.
 name: ci
 
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -55,3 +59,46 @@ jobs:
         run: |
           grep -E '^(FAILED|ERROR) ' pytest.log | head -n 9 | while read -r line; do echo "::error::${line:0:900}"; done
           tail -n 1 pytest.log | sed 's/^/::notice::/'
+
+  images:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      REGISTRY: ${{ secrets.AZURE_REGISTRY }}
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - name: Check that the Azure secrets are set
+        id: gate
+        env:
+          CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          if [ -n "$CLIENT_ID" ] && [ -n "$REGISTRY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Azure secrets are not set; images were not built"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.ready == 'true'
+      - uses: azure/login@v2
+        if: steps.gate.outputs.ready == 'true'
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Build and push api and worker
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          az acr login --name "$REGISTRY"
+          for target in api worker; do
+            image="$REGISTRY.azurecr.io/video-portal-$target:$IMAGE_TAG"
+            # deploy/azure/Dockerfile.dockerignore giới hạn build context ở requirements.txt, app/ và worker/.
+            docker build -f deploy/azure/Dockerfile --target "$target" -t "$image" .
+            docker push "$image"
+          done
+          echo "Pushed image tag: $IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"

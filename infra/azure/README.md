@@ -1,8 +1,8 @@
 # Terraform cho Azure (Phase 08)
 
-**Trạng thái (2026-11-21): đã `fmt`, `init`, `validate` và `plan` trên subscription Azure for Students của chủ dự án (azurerm 4.81.0, random 3.9.1, Terraform 1.17.2): `Plan: 32 to add` với `deploy_apps = false`, `Plan: 35 to add` với `deploy_apps = true`. CHƯA `apply`: chưa có tài nguyên nào. `plan` không gọi tới từng dịch vụ, nên hạn mức và giới hạn của gói sinh viên chỉ lộ ra khi `apply`.** Thiết kế và lý do: `docs/AZURE_ARCHITECTURE.md`, ADR-024 đến ADR-026.
+**Trạng thái (2026-11-21): bước nền ĐÃ `apply` trên subscription Azure for Students của chủ dự án, region `malaysiawest`: 32 tài nguyên, cộng 3 tài nguyên cho GitHub Actions (`github.tf`). App `api` và hai job CHƯA được tạo vì chưa có image trong registry.** Từ lúc apply, PostgreSQL, registry, load balancer và địa chỉ IP của environment tính tiền theo giờ. Công cụ: azurerm 4.81.0, random 3.9.1, Terraform 1.17.2. Thiết kế và lý do: `docs/AZURE_ARCHITECTURE.md`, ADR-024 đến ADR-028.
 
-## Tạo ra những gì (32 khối `resource`)
+## Tạo ra những gì (35 khối `resource`)
 
 | File | Tài nguyên |
 | --- | --- |
@@ -11,8 +11,9 @@
 | `data.tf` | PostgreSQL flexible server không có địa chỉ public; storage account bật versioning, tắt truy cập công khai và account key, CORS; container `media`; luật tự xoá phiên bản blob cũ; Service Bus Basic + queue `transcode-jobs`; Key Vault giữ mật khẩu DB |
 | `identity.tf` | Hai managed identity (`api`, `worker`) và các role assignment của chúng |
 | `apps.tf` | Container Registry, Log Analytics, Container Apps environment trong VNet; app `api`; job `transcode` (chạy khi có message) và job `maintenance` (theo lịch) |
+| `github.tf` | Identity `deploy` cho GitHub Actions: federated credential của nhánh `main`, role `AcrPush` trên registry (chỉ tạo khi đặt `github_repository`) |
 
-Theo `plan`: với `deploy_apps = false` là 32 tài nguyên, với `true` là 35 (một số khối tạo ra hai role assignment, ba khối chỉ có khi `deploy_apps = true`).
+Số tài nguyên thật: 32 ở bước nền, thêm 3 của `github.tf` (đã apply), thêm 3 nữa (app và hai job) khi `deploy_apps = true`.
 
 Không nằm trong Terraform này, phải làm tay và ghi lại: external tenant của Microsoft Entra External ID và app registration (thuộc tenant khác, cần quyền Tenant Creator); bản ghi DNS của tên miền (DNS nằm ngoài Azure); gắn tên miền riêng và chứng chỉ vào app (làm lúc chuyển DNS); quyền cho GitHub Actions (Phase 12); dashboard và alert (Phase 11).
 
@@ -57,9 +58,10 @@ Copy-Item infra\azure\terraform.tfvars.example infra\azure\terraform.tfvars   # 
 App và job không tạo được khi image chưa có trong registry, nên:
 
 1. `deploy_apps = false` → `apply`: tạo nền (mạng, database, storage, queue, vault, registry, environment). Từ lúc này PostgreSQL và registry tính tiền theo giờ/ngày.
-2. Build và đẩy hai image với cùng một tag. Máy này không có Docker; hai cách, **chưa cách nào được thử**:
-   - `az acr build` (build ngay trong registry): `az acr build --registry <tên registry> --image video-portal-api:<tag> --file deploy/azure/Dockerfile --target api .` và tương tự với `--target worker`. Chưa biết subscription sinh viên có được dùng ACR Tasks không.
-   - GitHub Actions (Phase 12).
+2. Build và đẩy hai image với cùng một tag bằng **GitHub Actions** (job `images` trong `.github/workflows/ci.yml`, chạy trên nhánh `main`, tag là commit SHA). Đây là cách duy nhất còn lại, đã thử ngày 2026-11-21:
+   - `az acr build`: region `malaysiawest` không có ACR Tasks; ở `japaneast` thì Azure trả `TasksOperationsNotAllowed` cho subscription sinh viên.
+   - Máy ảo Linux dùng tạm để chạy Docker: mọi cỡ nhỏ đã thử đều bị từ chối (`SkuNotAvailable` hoặc `QuotaExceeded`) ở `malaysiawest`, `japaneast`, `centralindia`.
+   - GitHub Actions đăng nhập Azure bằng OIDC qua identity `videoportal-deploy` (chỉ có role `AcrPush` trên registry, chỉ nhận token của nhánh `main`). Chủ dự án thêm bốn secret vào kho GitHub: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_REGISTRY`; giá trị nằm trong file `.env.github` ở thư mục gốc (không được commit). **Job này chưa chạy thành công lần nào.**
 3. Điền `image_tag`, đặt `deploy_apps = true` → `apply`: tạo app `api` và hai job.
 4. Tạo bảng: chạy một lần job `maintenance` với lệnh ghi đè `flask --app app.main init-db` (`az containerapp job start`; cú pháp ghi đè lệnh chưa được thử).
 5. Kiểm thử trên địa chỉ mặc định (`default_url`) trước khi đụng tới DNS.
@@ -77,7 +79,7 @@ Chứng chỉ miễn phí của Container Apps chỉ cấp được khi tên mi�
 
 ## Chi phí và dọn dẹp
 
-Phần cố định ước tính khoảng 27 USD/tháng ở `malaysiawest` (PostgreSQL B1ms + 32 GiB, registry Basic, private DNS zone); bảng và nguồn giá ở `docs/AZURE_ARCHITECTURE.md`. Gói Azure for Students liệt kê 750 giờ PostgreSQL B1ms và 32 GB mỗi tháng trong 12 tháng là miễn phí; nếu áp dụng cho subscription này thì phần cố định còn khoảng 5,6 USD/tháng, nhưng điều đó chưa xác nhận. Credit 100 USD theo tài liệu; số dư thật chưa xem. Hết credit thì mọi dịch vụ bị vô hiệu hoá. Ngân sách cảnh báo không phải trần chi tiêu.
+Phần cố định ước tính khoảng 49 USD/tháng, tức khoảng 1,6 USD/ngày, ở `malaysiawest` (PostgreSQL B1ms + 32 GiB, registry Basic, private DNS zone, cộng load balancer và địa chỉ IP mà Azure tự tạo cho environment trong VNet); bảng và nguồn giá ở `docs/AZURE_ARCHITECTURE.md`. Gói Azure for Students liệt kê 750 giờ PostgreSQL B1ms và 32 GB mỗi tháng trong 12 tháng là miễn phí; nếu áp dụng cho subscription này thì phần cố định còn khoảng 27,5 USD/tháng, nhưng điều đó chưa xác nhận. Credit 100 USD theo tài liệu; số dư thật chưa xem. Hết credit thì mọi dịch vụ bị vô hiệu hoá. Ngân sách cảnh báo không phải trần chi tiêu.
 
 Dọn dẹp sau demo: `terraform destroy` xoá mọi thứ ở đây, **kể cả database và toàn bộ video**. Key Vault đã xoá vẫn được Azure giữ 7 ngày trừ khi đặt `allow_destroy_data = true` trước khi destroy. Sau đó kiểm tra resource group đã trống và xem trang Cost Management.
 

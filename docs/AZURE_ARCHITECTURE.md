@@ -166,7 +166,9 @@ Hệ quả cho cấu hình: phải bật optional claim `email` cho ID token tro
 | Lưu trữ PostgreSQL | 32 GiB | 0,1242 / GiB-tháng | 3,97 |
 | Container Registry Basic | 1 registry | 0,1666 / ngày | 5,07 |
 | Private DNS zone | 1 zone | 0,50 / tháng | 0,50 |
-| **Cộng phần cố định** | | | **≈ 27** |
+| Load balancer Standard của environment | Azure tự tạo trong resource group `ME_…` vì environment nằm trong VNet riêng; đang có 2 luật | 0,025 / giờ (giá "Global" trong bảng giá) | 18,25 |
+| Địa chỉ IP public Standard của environment | 1 địa chỉ | 0,005 / giờ | 3,65 |
+| **Cộng phần cố định** | | | **≈ 49** (khoảng 1,6 USD/ngày) |
 | Container Apps `api` | 0,5 vCPU, 1 GiB, co về 0 khi nghỉ | 0,000028 / vCPU-giây; 0,000004 / GiB-giây | theo thời gian có người dùng |
 | Job `transcode` | 1 vCPU, 2 GiB, giả định 60 giây mỗi clip | như trên | ≈ 0,0022 mỗi clip |
 | Job `maintenance` | 0,25 vCPU, 0,5 GiB, 5 phút một lần, giả định 15 giây mỗi lần | như trên | ≈ 1,2 |
@@ -175,7 +177,7 @@ Hệ quả cho cấu hình: phải bật optional claim `email` cho ID token tro
 | Log Analytics | dưới 5 GB/tháng | 5 GB đầu miễn phí (giá sau đó ở region này chưa tra) | 0 |
 | Lưu lượng ra Internet | dưới 100 GB/tháng | 100 GB đầu miễn phí (giá sau đó ở region này chưa tra) | 0 |
 
-**Phần miễn phí của Azure for Students.** Trang `azure.microsoft.com/free/students` liệt kê cho PostgreSQL: 12 tháng, mỗi tháng 750 giờ flexible server Burstable B1MS, 32 GB lưu trữ và 32 GB sao lưu. Thiết kế dùng đúng cỡ đó (một máy chủ B1ms chạy cả tháng là tối đa 744 giờ, 32 GiB). Nếu ưu đãi áp dụng cho subscription này thì hai dòng PostgreSQL bằng 0 trong 12 tháng và phần cố định còn khoảng 5,6 USD/tháng. **Chưa xác nhận** ưu đãi được áp dụng tự động hay cần thao tác nào, và có áp dụng ở `malaysiawest` không; phải xem Cost Management sau vài ngày đầu. Ghi chú riêng: ưu đãi "Apply offer"/bậc Basic khoảng 5 USD/tháng mà cổng Azure quảng cáo là của **Azure SQL Database** (lõi SQL Server), ứng dụng này không dùng được vì mã nguồn viết cho PostgreSQL.
+**Phần miễn phí của Azure for Students.** Trang `azure.microsoft.com/free/students` liệt kê cho PostgreSQL: 12 tháng, mỗi tháng 750 giờ flexible server Burstable B1MS, 32 GB lưu trữ và 32 GB sao lưu. Thiết kế dùng đúng cỡ đó (một máy chủ B1ms chạy cả tháng là tối đa 744 giờ, 32 GiB). Nếu ưu đãi áp dụng cho subscription này thì hai dòng PostgreSQL bằng 0 trong 12 tháng và phần cố định còn khoảng 27,5 USD/tháng. Load balancer và địa chỉ IP là hai khoản chỉ thấy được sau `apply` ngày 2026-11-21 (bản ước tính trước đó thiếu chúng); chúng được suy ra từ tài nguyên có thật và bảng giá, chưa đối chiếu với hoá đơn. **Chưa xác nhận** ưu đãi được áp dụng tự động hay cần thao tác nào, và có áp dụng ở `malaysiawest` không; phải xem Cost Management sau vài ngày đầu. Ghi chú riêng: ưu đãi "Apply offer"/bậc Basic khoảng 5 USD/tháng mà cổng Azure quảng cáo là của **Azure SQL Database** (lõi SQL Server), ứng dụng này không dùng được vì mã nguồn viết cho PostgreSQL.
 
 Ba dòng Container Apps chưa trừ phần miễn phí hằng tháng (180.000 vCPU-giây, 360.000 GiB-giây, 2 triệu request); với tải demo thì nhiều khả năng nằm trọn trong phần miễn phí, nhưng điều đó **chưa đo**. Nếu giữ `api` luôn có 1 replica để tránh chờ khởi động: thêm khoảng 15,8 USD/tháng theo giá idle (trước phần miễn phí).
 

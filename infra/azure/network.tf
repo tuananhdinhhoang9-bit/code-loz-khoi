@@ -31,6 +31,9 @@ resource "azurerm_subnet" "db" {
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = ["10.20.1.0/28"]
+  # PostgreSQL flexible server tự thêm service endpoint này vào subnet của nó khi được tạo (thấy ở lần plan thứ hai
+  # sau apply ngày 2026-11-21). Khai báo ở đây để Terraform không gỡ nó đi.
+  service_endpoints = ["Microsoft.Storage"]
 
   delegation {
     name = "postgresql"

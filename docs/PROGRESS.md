@@ -652,6 +652,15 @@ The owner judged the live "Media Studio" interface too monochrome and too close 
 - `RUN_DB_TESTS=1 pytest -q` -> **172 passed, 7 skipped** (the suite checks the served HTML and the API; it does not execute the page's JavaScript — that was covered by the browser checks above).
 - Not verified: the animations themselves (the embedded browser reports `prefers-reduced-motion: reduce`, so only the reduced-motion rendering was seen); a real mouse drag of a file onto the drop zones (events were simulated); other browsers and real phones; contrast measured with a tool (ratios were calculated by hand for the text/background pairs); the Cognito/S3 branches; anything on the live site.
 - Self-critique: the pipeline tile is half empty while nothing is processing; the "Giới thiệu", "Tài khoản của tôi" and "Quản lý người dùng" pages are still plain cards with an accent stripe; the test clips are colour bars, so the screenshots look louder than real footage would.
+
+### 2026-11-21 — "Vibrant Media Studio" interface deployed to the VPS (owner approved after seeing the screenshots)
+- Deployed from commit `e4d83ba` with a clean working tree. Only `templates\index.html`, `static\portal.css`, `static\portal.js` were replaced in `C:\VideoPortal\app\app`; backend, configuration, database, Worker and Caddy untouched.
+- Backup of the files that were live ("Media Studio"): `C:\VideoPortal\backups\ui-before-vibrant-2026-11-21\` (three files, hashes equal to the live ones before the copy). Earlier backups `ui-before-media-studio-2026-11-21\` and `ui-before-2026-11-21\` are still there.
+- `Restart-Service VideoPortal-API`: `/health` answered 200 again after 3 s; API, Worker, Caddy and PostgreSQL services all Running.
+- Checked over HTTPS on `video.uploadmdm.id.vn`: home 200 with the new hero and the quick-drop zone in the markup; `portal.css` and `portal.js` byte-identical to the repository; `/health` -> `database: ok`; `/api/videos` without a token -> 401; `/api/config` -> local provider, 200 MB limit; Content-Security-Policy header unchanged; `api-error.log` still empty.
+- Guest page of the live application in the embedded browser (`http://127.0.0.1:8000`, where static files load): hero, illustration and sign-in card render, the limit shows `200 MB, 30 giây`, no console errors, no horizontal overflow at 1440 px, 0 thumbnail/video elements.
+- Not verified: the live pages after sign-in (no account of mine on the live site; the administrator password was not reused), the public address in a real browser, phones. The owner is asked to hard-refresh (Ctrl+F5) and try sign-in, one upload and playback.
+- Rollback: copy the three files back from `ui-before-vibrant-2026-11-21\app\` into `C:\VideoPortal\app\app\` and `Restart-Service VideoPortal-API`.
 2. Confirmation that the Free plan permits the RDS, ALB, Fargate and Cognito resources in `infra/aws/`.
 3. GitHub repository URL -> push, then a workflow to build and push the two images.
 4. Owner approval of the first paid `apply`, with the plan output and the cost table in front of them.

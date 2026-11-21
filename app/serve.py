@@ -25,7 +25,7 @@ def main():
         max_request_body_size=app.config["MAX_CONTENT_LENGTH"],
         ident=None,
         # Chỉ tin X-Forwarded-* từ proxy phía trước; header do client tự gửi bị xoá. Mặc định là Caddy trên cùng máy.
-        # Trên AWS đặt TRUSTED_PROXY=*: ALB không có IP cố định và security group chỉ cho ALB gọi vào task.
+        # Trên Azure Container Apps đặt TRUSTED_PROXY=*: ingress không có IP cố định và là đường duy nhất vào container.
         trusted_proxy=os.getenv("TRUSTED_PROXY", "127.0.0.1"), trusted_proxy_count=1,
         trusted_proxy_headers={"x-forwarded-for", "x-forwarded-proto", "x-forwarded-host"},
         clear_untrusted_proxy_headers=True,

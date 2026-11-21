@@ -1,6 +1,7 @@
-"""Worker chạy nền: reconcile -> relay outbox -> nhận job từ hàng đợi PostgreSQL -> FFmpeg.
+"""Worker chạy nền: reconcile -> relay outbox -> nhận job từ hàng đợi -> FFmpeg.
 
-Chạy: python -m app.worker_service   (dừng bằng Ctrl+C / Ctrl+Break / lệnh stop của service)
+Chạy liên tục (VPS/local): python -m app.worker_service   (dừng bằng Ctrl+C / Ctrl+Break / lệnh stop của service)
+Chạy một vòng rồi thoát (Container Apps Job trên Azure): python -m app.worker_service --once
 Chỉ một worker hoạt động tại một thời điểm (advisory lock) và mỗi lần chỉ xử lý một video.
 """
 
@@ -62,7 +63,20 @@ def run_worker(engine, broker, store, work_root, stop, runner=run_native, seed_r
     return processed
 
 
-def main():
+def run_once(engine, broker, store, work_root, runner=run_native, seed_root=None, heartbeat=True):
+    """Một lần chạy của Container Apps Job: cùng thứ tự với vòng lặp ở trên, xử lý tối đa một message rồi trả về.
+
+    Lỗi tạm thời không bị nuốt: tiến trình thoát với mã lỗi, message chưa ack sẽ được Service Bus giao lại.
+    """
+    reconcile(engine)
+    outcome = dispatch_one(engine, broker, store, work_root, runner, seed_root, heartbeat)
+    if outcome == "empty" and relay(engine, broker, limit=1):
+        outcome = dispatch_one(engine, broker, store, work_root, runner, seed_root, heartbeat)
+    logger.info(json.dumps({"event": "worker_outcome", "outcome": outcome}))
+    return outcome
+
+
+def main(once=None):
     from app.logs import configure_logging
     from app.main import create_app
     from app.queue_pg import make_broker
@@ -88,11 +102,22 @@ def main():
         return 3
     with app.app_context():
         store = storage()
-    logger.info(json.dumps({"event": "worker_started"}))
+    once = "--once" in sys.argv[1:] if once is None else once
+    logger.info(json.dumps({"event": "worker_started", "mode": "once" if once else "loop"}))
+    broker = make_broker(app, engine)
+    seed_root = Path(app.config["STORAGE_ROOT"]).parent / "seed"
     try:
-        run_worker(engine, make_broker(app, engine), store, app.config["WORK_ROOT"], stop,
-                   seed_root=Path(app.config["STORAGE_ROOT"]).parent / "seed")
+        if once:
+            run_once(engine, broker, store, app.config["WORK_ROOT"], seed_root=seed_root)
+        else:
+            run_worker(engine, broker, store, app.config["WORK_ROOT"], stop, seed_root=seed_root)
+    except (SQLAlchemyError, QueueError, OSError) as error:
+        # Chỉ tới đây ở chế độ một vòng: báo lỗi bằng mã thoát để nền tảng ghi nhận lần chạy thất bại.
+        logger.error(json.dumps({"event": "worker_cycle_failed", "error_type": type(error).__name__}))
+        return 1
     finally:
+        if hasattr(broker, "close"):
+            broker.close()
         lock.close()
         engine.dispose()
     logger.info(json.dumps({"event": "worker_stopped"}))

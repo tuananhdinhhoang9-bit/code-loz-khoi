@@ -120,8 +120,14 @@ $("menu-toggle").addEventListener("click", () => {
 // ---------- Đăng nhập ----------
 function applyAuth() {
   const local = provider === "local";
+  const redirect = provider === "oidc";
   // Chưa đăng nhập thì chỉ hiện màn hình giới thiệu; không có dữ liệu hay khung trống nào của ứng dụng lộ ra.
   document.body.classList.toggle("guest", !user);
+  // Đăng nhập OIDC diễn ra trên trang của nhà cung cấp: ẩn và tắt hai ô nhập để form không đòi điền.
+  $("local-login").hidden = redirect;
+  $("email").disabled = redirect;
+  $("password").disabled = redirect;
+  $("login-hint").textContent = redirect ? "Bạn sẽ được chuyển sang trang đăng nhập của tổ chức rồi quay lại đây." : "Tài khoản do quản trị viên cấp.";
   $("password-form").hidden = !local;
   $("nav-users").hidden = !(user && user.admin && local);
   $("users-gate").hidden = Boolean(user && user.admin && local);
@@ -156,10 +162,86 @@ function signOut(showMessage = true) {
   else say("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.", true);
 }
 
+async function authConfig() {
+  const response = await fetch("/api/auth/config");
+  const config = await response.json();
+  if (!response.ok) throw new Error(errors[config.error]);
+  return config;
+}
+
+// ---------- Đăng nhập OIDC: authorization code + PKCE (Microsoft Entra External ID) ----------
+const base64url = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const randomText = () => base64url(window.crypto.getRandomValues(new Uint8Array(32)));
+const redirectUri = () => window.location.origin + "/";
+const oidcKey = "video-portal-oidc";
+const oidcFailed = "Đăng nhập chưa hoàn tất. Hãy thử lại.";
+
+async function startOidcLogin(config) {
+  const verifier = randomText();
+  const state = randomText();
+  const nonce = randomText();
+  const digest = new Uint8Array(await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+  // Ba giá trị ngẫu nhiên chỉ nằm trong tab này, để nhận đúng kết quả của chính lần đăng nhập này khi quay về.
+  window.sessionStorage.setItem(oidcKey, JSON.stringify({ verifier, state, nonce }));
+  const query = new URLSearchParams({
+    client_id: config.client_id, response_type: "code", response_mode: "query", redirect_uri: redirectUri(),
+    scope: "openid profile email", state, nonce, code_challenge: base64url(digest), code_challenge_method: "S256",
+  });
+  window.location.assign(config.authorize_url + (config.authorize_url.includes("?") ? "&" : "?") + query);
+}
+
+// Trang vừa được nhà cung cấp chuyển về kèm ?code=...&state=... (hoặc ?error=...&state=...): đổi mã lấy ID token.
+async function finishOidcLogin() {
+  const query = new URLSearchParams(window.location.search);
+  let saved = null;
+  try {
+    saved = JSON.parse(window.sessionStorage.getItem(oidcKey));
+    window.sessionStorage.removeItem(oidcKey);
+  } catch {
+    saved = null;
+  }
+  // Xoá mã đăng nhập khỏi thanh địa chỉ và lịch sử trước khi làm việc khác.
+  window.history.replaceState(null, "", window.location.pathname);
+  if (!saved || saved.state !== query.get("state") || !query.has("code")) throw new Error(oidcFailed);
+  const config = await authConfig();
+  const response = await fetch(config.token_url, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "authorization_code", client_id: config.client_id, code: query.get("code"), redirect_uri: redirectUri(), code_verifier: saved.verifier }),
+    signal: AbortSignal.timeout(15000),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || typeof result.id_token !== "string") throw new Error(oidcFailed);
+  // nonce chứng minh token này được cấp cho đúng lần đăng nhập vừa bắt đầu ở tab này; chữ ký do máy chủ kiểm tra.
+  let claims = {};
+  try {
+    const body = result.id_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    claims = JSON.parse(new TextDecoder().decode(Uint8Array.from(window.atob(body), (char) => char.charCodeAt(0))));
+  } catch {
+    claims = {};
+  }
+  if (claims.nonce !== saved.nonce) throw new Error(oidcFailed);
+  return result.id_token;
+}
+
+async function completeLogin(getToken) {
+  try {
+    token = await getToken();
+    user = await api("/api/me");
+    applyAuth();
+    say("Đăng nhập thành công.");
+    window.location.hash = "#home";
+    await refresh();
+  } catch (error) {
+    token = "";
+    user = null;
+    applyAuth();
+    say(error.message, true);
+  }
+}
+
 async function signIn(email, password) {
-  const configResponse = await fetch("/api/auth/config");
-  const config = await configResponse.json();
-  if (!configResponse.ok) throw new Error(errors[config.error]);
+  const config = await authConfig();
   if (config.provider === "local") {
     const login = await fetch("/api/auth/login", {
       method: "POST",
@@ -170,19 +252,6 @@ async function signIn(email, password) {
     const session = await login.json();
     if (!login.ok || !session.token) throw new Error(errors[session.error] || errors.invalid_credentials);
     return session.token;
-  }
-  if (config.provider === "cognito") {
-    // Mật khẩu đi thẳng từ trình duyệt tới Cognito; máy chủ của trang chỉ nhận ID token.
-    const login = await fetch(`https://cognito-idp.${config.region}.amazonaws.com/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-amz-json-1.1", "X-Amz-Target": "AWSCognitoIdentityProviderService.InitiateAuth" },
-      body: JSON.stringify({ AuthFlow: "USER_PASSWORD_AUTH", ClientId: config.client_id, AuthParameters: { USERNAME: email, PASSWORD: password } }),
-      signal: AbortSignal.timeout(15000),
-    });
-    const result = await login.json().catch(() => ({}));
-    if (result.ChallengeName) throw new Error("Tài khoản chưa có mật khẩu chính thức. Hãy nhờ quản trị viên đặt mật khẩu.");
-    if (!login.ok || !result.AuthenticationResult?.IdToken) throw new Error(errors.invalid_credentials);
-    return result.AuthenticationResult.IdToken;
   }
   const login = await fetch(
     "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + encodeURIComponent(config.api_key),
@@ -200,22 +269,18 @@ async function signIn(email, password) {
 
 $("login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (provider === "oidc") {
+    try {
+      await startOidcLogin(await authConfig());
+    } catch (error) {
+      say(error.message || oidcFailed, true);
+    }
+    return;
+  }
   const email = $("email").value.trim();
   const password = $("password").value;
   $("password").value = "";
-  try {
-    token = await signIn(email, password);
-    user = await api("/api/me");
-    applyAuth();
-    say("Đăng nhập thành công.");
-    window.location.hash = "#home";
-    await refresh();
-  } catch (error) {
-    token = "";
-    user = null;
-    applyAuth();
-    say(error.message, true);
-  }
+  await completeLogin(() => signIn(email, password));
 });
 
 // Hai nút trên hero của màn hình chưa đăng nhập: muốn tải lên thì phải đăng nhập trước.
@@ -230,6 +295,10 @@ $("guest-how").addEventListener("click", () => $("how").scrollIntoView({ block: 
 $("logout").addEventListener("click", async () => {
   if (token) await api("/api/auth/logout", { method: "POST" }).catch(() => {});
   signOut();
+  if (provider !== "oidc") return;
+  // Phiên ở nhà cung cấp vẫn còn sau khi trang quên token: nếu có địa chỉ đăng xuất thì kết thúc luôn phiên đó.
+  const config = await authConfig().catch(() => ({}));
+  if (config.logout_url) window.location.assign(config.logout_url + (config.logout_url.includes("?") ? "&" : "?") + new URLSearchParams({ post_logout_redirect_uri: redirectUri() }));
 });
 
 $("password-form").addEventListener("submit", async (event) => {
@@ -818,29 +887,21 @@ function setPhase(name, state, figure, percent = null) {
   bar.firstElementChild.style.width = state === "done" ? "100%" : percent === null ? "" : percent + "%";
 }
 
-// created.upload_method: "PUT" = gửi thẳng lên máy chủ của trang; "POST" = form ký sẵn gửi thẳng tới S3.
+// created.upload_url là máy chủ của trang (storage local) hoặc URL có SAS của Blob Storage; cả hai đều nhận PUT và trả 201.
+// created.upload_headers là các header máy chủ yêu cầu gửi kèm (Content-Type, và x-ms-blob-type với Blob Storage).
 function sendFile(created, file, onProgress) {
   return new Promise((resolve, reject) => {
-    const form = created.upload_method === "POST";
     const request = new XMLHttpRequest();
-    request.open(form ? "POST" : "PUT", created.upload_url);
+    request.open("PUT", created.upload_url);
     request.upload.addEventListener("progress", (event) => { if (event.lengthComputable) onProgress(event.loaded, event.total); });
     request.addEventListener("load", () => {
-      if (request.status === (form ? 204 : 201)) resolve();
-      else if (request.status === 413 || request.responseText.includes("EntityTooLarge")) reject(new Error(errors.upload_too_large));
+      if (request.status === 201) resolve();
+      else if (request.status === 413) reject(new Error(errors.upload_too_large));
       else reject(new Error("Gửi file chưa hoàn tất. Hãy thử lại."));
     });
     request.addEventListener("error", () => reject(new Error("Mất kết nối khi đang gửi file. Hãy thử lại.")));
-    if (form) {
-      // S3 yêu cầu các trường đã ký đứng trước, file đứng cuối cùng.
-      const body = new FormData();
-      for (const [name, value] of Object.entries(created.upload_fields)) body.append(name, value);
-      body.append("file", file);
-      request.send(body);
-    } else {
-      request.setRequestHeader("Content-Type", file.type);
-      request.send(file);
-    }
+    for (const [name, value] of Object.entries(created.upload_headers || { "Content-Type": file.type })) request.setRequestHeader(name, value);
+    request.send(file);
   });
 }
 
@@ -1058,6 +1119,8 @@ fetch("/api/config")
     $("welcome-limit").textContent = `${megabytes()} MB, 30 giây`;
     $("guide-limit").textContent = `Dung lượng tối đa ${megabytes()} MB.`;
     applyAuth();
+    // Vừa quay về từ trang đăng nhập OIDC thì hoàn tất đăng nhập; mọi trường hợp khác không làm gì.
+    if (provider === "oidc" && new URLSearchParams(window.location.search).has("state")) completeLogin(finishOidcLogin);
   })
   .catch(() => {});
 applyAuth();

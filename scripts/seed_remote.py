@@ -1,7 +1,7 @@
 """Seed the ten reference clips into a RUNNING portal through its public API, then check the results.
 
 Unlike `flask seed-db` (which writes local-only rows for development), this uploads the real files the
-same way a browser does, so it works against any deployment, including S3 + Fargate. It is repeatable:
+same way a browser does, so it works against any deployment, including Azure Blob Storage. It is repeatable:
 a clip whose title is already in the owner's library is not uploaded again.
 
   python -m app.seed_media --output-dir .local/seed        # generate the dataset once (needs FFmpeg)

@@ -1,6 +1,7 @@
 from datetime import timedelta
 import json
 import logging
+import os
 from pathlib import Path
 import shutil
 import time
@@ -17,7 +18,9 @@ from app.worker_runner import run_container
 from worker.transcode import MAX_OUTPUT_BYTES, MediaError, max_input_bytes, validate_source, verify_outputs
 
 LEASE_SECONDS = 180
-DISPATCH_SECONDS = 30
+# Thời hạn để worker nhận job sau khi event được gửi. Worker chạy liên tục: 30 giây là đủ. Job chạy theo sự kiện
+# (Container Apps Job) còn phải chờ thăm dò hàng đợi và khởi động container, nên image Azure đặt số lớn hơn.
+DISPATCH_SECONDS = min(max(int(os.getenv("DISPATCH_SECONDS", "30")), 5), 3600)
 ATTEMPT_CAP = 3
 PUBLISH_CAP = 5
 logger = logging.getLogger(__name__)
@@ -166,7 +169,7 @@ def source_file(store, claim, seed_root=None):
 def fetch_source(store, claim, target, seed_root=None):
     """Chép đúng phiên bản nguồn của job vào thư mục riêng của attempt."""
     if hasattr(store, "download") and not claim["input_object"].startswith("local-seed/"):
-        # S3: tải theo VersionId nên nội dung chắc chắn là phiên bản đã ghi trong job.
+        # Blob Storage: tải theo version ID nên nội dung chắc chắn là phiên bản đã ghi trong job.
         store.download(claim["input_object"], claim["generation"], target)
         if target.stat().st_size != claim["size_bytes"] or target.stat().st_size > max_input_bytes():
             raise MediaError("source_size_changed")
@@ -181,7 +184,7 @@ def execute_claim(engine, store, claim, work_root, runner=run_container, seed_ro
     attempt = Path(work_root).resolve() / str(claim["job_id"]) / str(claim["attempt_id"])
 
     def beat(percent):
-        # on_beat giữ message của hàng đợi ẩn trong lúc job còn chạy (SQS); lease trong DB vẫn là thứ quyết định.
+        # on_beat giữ khoá của message trong lúc job còn chạy (Service Bus); lease trong DB vẫn là thứ quyết định.
         if on_beat:
             on_beat()
         return touch_lease(engine, claim, percent)

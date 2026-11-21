@@ -26,13 +26,13 @@ class StorageFull(HTTPException):
     description = "storage_full"
 
 
-def s3_origin(bucket, region):
-    """Địa chỉ trình duyệt dùng để tải lên/phát trực tiếp từ bucket S3 (cần cho CSP và CORS)."""
-    return f"https://{bucket}.s3.{region}.amazonaws.com"
+def blob_origin(account):
+    """Địa chỉ trình duyệt dùng để tải lên/phát trực tiếp từ Blob Storage (cần cho CSP và CORS)."""
+    return f"https://{account}.blob.core.windows.net"
 
 
 class StorageUnavailable(OSError):
-    """Storage tạm thời không dùng được (ví dụ S3 lỗi mạng): API trả 503, worker coi là lỗi thử lại được."""
+    """Storage tạm thời không dùng được (ví dụ Blob Storage lỗi mạng): API trả 503, worker coi là lỗi thử lại được."""
 
 
 class RedactStorageTickets(logging.Filter):
@@ -95,9 +95,9 @@ class LocalStorage:
         return f"/local-storage/{operation}?ticket={ticket}"
 
     def upload_target(self, video_id, name, mime_type, size_limit):
-        """Nơi trình duyệt gửi file gốc; S3Storage trả cùng dạng nhưng là form POST ký sẵn."""
+        """Nơi trình duyệt gửi file gốc và các header phải gửi kèm; BlobStorage trả cùng dạng với URL có SAS."""
         url = self.signed_url("upload", video_id=video_id, name=name, mime_type=mime_type, size_limit=size_limit)
-        return {"upload_url": url, "upload_method": "PUT"}
+        return {"upload_url": url, "upload_method": "PUT", "upload_headers": {"Content-Type": mime_type}}
 
     def read_url(self, name, generation, mime_type):
         return self.signed_url("read", name=name, generation=generation, mime_type=mime_type)
@@ -186,10 +186,11 @@ class LocalStorage:
 def storage():
     app = current_app
     with storage_lock:
-        if "storage" not in app.extensions and app.config.get("STORAGE_BACKEND") == "s3":
-            from app.storage_s3 import S3Storage, s3_client
-            app.extensions["storage"] = S3Storage(app.config["S3_BUCKET"], s3_client(app.config["AWS_REGION"]),
-                                                  app.config.get("MAX_UPLOAD_BYTES", MAX_BYTES))
+        if "storage" not in app.extensions and app.config.get("STORAGE_BACKEND") == "blob":
+            from app.storage_blob import BlobStorage, blob_service
+            account = app.config["AZURE_STORAGE_ACCOUNT"]
+            app.extensions["storage"] = BlobStorage(account, app.config["AZURE_STORAGE_CONTAINER"], blob_service(account),
+                                                    app.config.get("MAX_UPLOAD_BYTES", MAX_BYTES))
         if "storage" not in app.extensions:
             app.extensions["storage"] = LocalStorage(
                 app.config["STORAGE_ROOT"], app.config.get("STORAGE_SIGNING_KEY"),

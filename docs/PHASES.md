@@ -2,7 +2,7 @@
 
 Read `AGENTS.md` + only the referenced docs. Do not build future phases early. Each phase ends with test commands, result (PASS/FAIL/BLOCKED), updated PROGRESS and a focused Git commit.
 
-**Deployment target changed on 2026-11-21:** phases 07–13 now target **Azure** (ADR-024, `docs/AZURE_ARCHITECTURE.md`). The AWS phases (2026-11-20), the Windows VPS phases (2026-11-17) and the GCP phases are archived at the bottom of this file. Phases 00–06 are unchanged. **No Azure phase has been started.**
+**Deployment target changed on 2026-11-21:** phases 07–13 now target **Azure** (ADR-024, `docs/AZURE_ARCHITECTURE.md`). The AWS phases (2026-11-20), the Windows VPS phases (2026-11-17) and the GCP phases are archived at the bottom of this file. Phases 00–06 are unchanged. **Azure phase 07 is done (code and local tests only, see `docs/PROGRESS.md`); phases 08–13 have not been started.**
 
 | Phase | Work | Acceptance |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ If the user needs to stop after a phase, keep unfinished acceptance **BLOCKED**,
 
 ## Archived AWS phases (code and plan only)
 
-Target from 2026-11-20 to 2026-11-21 (ADR-021 to ADR-023), dropped by the owner. Phase 07 (S3, SQS and Cognito adapters, tested with stubs) and phase 08 (`infra/aws/`, validated and planned: 56 resources to add) were completed; one resource, an ACM certificate, was applied. Phases 09–13 were never started. `docs/AWS_ARCHITECTURE.md`, `infra/aws/`, `deploy/aws/` and `prompts/*-AWS-*.md` are reference material; the frozen `aws` branch holds the last AWS edition.
+Target from 2026-11-20 to 2026-11-21 (ADR-021 to ADR-023), dropped by the owner. Phase 07 (S3, SQS and Cognito adapters, tested with stubs) and phase 08 (`infra/aws/`, validated and planned: 56 resources to add) were completed; one resource, an ACM certificate, was applied. Phases 09–13 were never started. `docs/AWS_ARCHITECTURE.md`, `infra/aws/` and `prompts/*-AWS-*.md` are reference material; the AWS adapters and `deploy/aws/` were removed from `main` in Azure phase 07, and the frozen `aws` branch holds the last complete AWS edition.
 
 ## Archived Windows VPS phases (executed up to service installation)
 

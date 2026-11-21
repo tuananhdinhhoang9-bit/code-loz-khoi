@@ -20,10 +20,10 @@ MAX_DELIVERIES = 10
 
 
 def make_broker(app, engine):
-    """Hàng đợi theo cấu hình: bảng PostgreSQL (mặc định, VPS/local) hoặc Amazon SQS (AWS)."""
-    if app.config.get("QUEUE_BACKEND") == "sqs":
-        from app.queue_sqs import SqsBroker, sqs_client
-        return SqsBroker(sqs_client(app.config["AWS_REGION"]), app.config["SQS_QUEUE_URL"], app.config["SQS_DEAD_LETTER_URL"])
+    """Hàng đợi theo cấu hình: bảng PostgreSQL (mặc định, VPS/local) hoặc Azure Service Bus."""
+    if app.config.get("QUEUE_BACKEND") == "servicebus":
+        from app.queue_servicebus import ServiceBusBroker, servicebus_client
+        return ServiceBusBroker(servicebus_client(app.config["SERVICEBUS_NAMESPACE"]), app.config["SERVICEBUS_QUEUE"])
     return PgBroker(engine)
 
 

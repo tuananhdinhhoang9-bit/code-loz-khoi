@@ -1,5 +1,7 @@
 # Video Portal — bản chạy trên AWS (nhánh `aws`)
 
+> **NHÁNH ĐÃ ĐÓNG BĂNG (2026-11-21).** Chủ dự án đã bỏ AWS; bản cloud tiếp theo là Azure và được phát triển trên nhánh `main` (xem `docs/AZURE_ARCHITECTURE.md` ở đó). Nhánh này giữ nguyên bản AWS cuối cùng để tham khảo: chỉ có mã và Terraform, chưa từng triển khai, và không nhận thay đổi nữa.
+
 Đề tài số 10 “Video Upload and Processing Portal” (`references/10_video_upload_and_processing_portal.pdf`). Nhánh này là bản dùng **database và các dịch vụ của AWS**, đúng với yêu cầu của đề bài. Bản chạy trên một máy Windows Server nằm ở nhánh [`vps`](../../tree/vps); nhánh `main` là nơi phát triển và chứa cả hai.
 
 ## Mọi thứ nằm ở đâu

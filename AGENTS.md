@@ -4,6 +4,8 @@ Project: Cloud Computing Final Project 10 — **Video Upload and Processing Port
 
 ## Branch `aws` (read first)
 
+**FROZEN (2026-11-21): the owner dropped AWS; the cloud target is Azure (ADR-024 on `main`). Do not develop on this branch and do not run Terraform or AWS commands from it unless the owner asks.**
+
 This branch is the **AWS edition**, cut from `main`. The Windows VPS tooling (`scripts/windows/`, `deploy/windows/`, `docs/WINDOWS_VPS_*.md`, the two VPS prompts) is not on this branch; it lives on `main` and `vps`. The VPS services described below still exist on the owner's server and the rule not to touch them still applies. Change application code on `main` and merge it into this branch; do not let `app/`, `worker/` or `tests/` diverge.
 
 ## Deployment target (changed 2026-11-20)

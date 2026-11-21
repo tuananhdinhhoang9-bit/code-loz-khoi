@@ -12,7 +12,7 @@ Source: PDF pages 3–4.
 - [ ] **Actual deployed** architecture diagram including GCP names, region, trust boundaries, network paths, failure domains
 - [ ] Short design report explaining decisions, limitations and recoveries
 - [ ] Monitoring dashboard and actionable alert, actual Cloud Run Job cancel/restore evidence
-- [ ] Real recorded load-test conditions, p95, error rate and timestamps
+- [x] Real recorded load-test conditions, p95, error rate and timestamps (Azure run of 2026-11-21 in `docs/EVIDENCE.md`)
 - [ ] Dated monthly cost estimate by workload/region/tier/backup/egress and distinction from actual bills
 - [ ] Cleanup and verification steps
 - [ ] 10–15 minute demo script: normal flow, protected playback, correctness, failure+recovery, monitoring, CI/CD

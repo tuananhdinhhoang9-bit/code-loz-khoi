@@ -821,3 +821,13 @@ The owner ran `scripts/failure_drill.py` against Azure (password typed by them).
 - Left on the deployment: the video "Failure drill clip" in the administrator's library.
 - No application code changed; tests not re-run.
 - Next: Phase 11 — dashboard, one alert, Cost Management figures (available from tomorrow), load test with p95; then Phase 12 (deploy and rollback through GitHub Actions; needs the owner's approval for a role assignment).
+
+### 2026-11-21 — Load test on Azure with p95 — DONE (one run, read-only API mix)
+The owner ran `scripts/load_test.py` against the Azure URL (password typed by them). Conditions and tables: `docs/EVIDENCE.md` (section "API load test with p95").
+- New `scripts/load_test.py`: N signed-in users, one keep-alive connection each, list -> status -> playback -> status without pause; warm-up not counted; p50/p95/p99 by nearest rank from the real samples; exits 1 on any non-200. Unit test for the percentile and error counting in `tests/test_scripts.py` (6 passed). Local trial on the development server: 10 users, 15 s, 2,291 requests, 0 errors, p95 115.4 ms — only to validate the script.
+- **Azure, 10 users, 10 s warm-up, 60 s measured (14:37:12–14:38:13 UTC): 3,479 requests, 0 errors, p50 178.6 ms, p95 285.9 ms, p99 317.7 ms, max 481.5 ms, 58.0 requests/s.**
+- Server side for the same window: 3,532 requests in the access log, all 200, one replica, handler time p95 186 ms; CPU peaked at 0.505 vCPU of 0.5 (CPU-bound), no restart.
+- Limits of this number: one run; client on the VPS; reads only; `max_replicas = 1`. Transcode throughput under load was not tested and stays at one video per execution.
+- `docs/DELIVERABLES.md`: load-test line ticked with a pointer to the evidence.
+- No application code changed.
+- Next: Phase 12 (deploy and rollback through GitHub Actions) needs the owner's approval for role assignments to the `deploy` identity; Phase 11 (dashboard, one alert, Cost Management figures) can start as soon as cost data exists (tomorrow).

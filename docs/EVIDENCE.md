@@ -113,3 +113,32 @@ Not covered by this run: a worker killed half-way and its retry (failure drill);
 | Queue afterwards | `activeMessageCount` 0, `deadLetterMessageCount` 0 |
 
 What this drill did **not** exercise on Azure: `az containerapp job stop` ends the container with SIGTERM, so the worker had time to record the failure and settle its message. A hard kill, where nothing is recorded and recovery must wait for the Service Bus lock and the job's lease to expire, was shown only locally (`RETRYING lease_expired` 181 s after the kill, see `docs/PROGRESS.md`). The dead-letter path and the three-attempt limit were not triggered on Azure either; they are covered by the automated tests.
+
+## Azure deployment — API load test with p95 (2026-11-21)
+
+`scripts/load_test.py` run by the owner from the VPS against the Azure URL (they typed the password). Client and server numbers are both from real samples of this one run.
+
+| Condition | Value |
+| --- | --- |
+| Measured window | 2026-11-21 14:37:12 – 14:38:13 UTC (60 s), after a 10 s warm-up that is not counted |
+| Load | 10 concurrent signed-in users, one keep-alive HTTPS connection each, no pause between requests |
+| Requests | `GET /api/videos`, `GET …/status`, `GET …/playback`, `GET …/status`, repeated; 12 `READY` videos in the library (the ten reference clips and two others) |
+| Client | The project's VPS, over the public internet to `malaysiawest` |
+| Server | One replica of `videoportal-api` (0.5 vCPU, 1 GiB, Waitress with 6 threads), image `4a6353e`; PostgreSQL B1ms; `max_replicas = 1` |
+
+| Result (client side) | Requests | Errors | p50 | p95 | p99 | Max |
+| --- | --- | --- | --- | --- | --- | --- |
+| All | 3,479 (58.0 per second) | 0 (0.00 %) | 178.6 ms | **285.9 ms** | 317.7 ms | 481.5 ms |
+| `list` | 869 | 0 | 137.2 ms | 277.1 ms | 317.3 ms | 390.7 ms |
+| `status` | 1,738 | 0 | 168.7 ms | 260.7 ms | 307.9 ms | 381.4 ms |
+| `playback` | 872 | 0 | 201.6 ms | 301.6 ms | 382.4 ms | 481.5 ms |
+
+Result line: `LOAD_RESULT {"users": 10, "warmup_seconds": 10, "duration_seconds": 60, "videos": 12, "measured_from_utc": "2026-11-21T14:37:12Z", "measured_to_utc": "2026-11-21T14:38:13Z", "requests": 3479, "errors": 0, "error_rate_percent": 0.0, "p50_ms": 178.6, "p95_ms": 285.9, "p99_ms": 317.7, "max_ms": 481.5, "requests_per_second": 58.0, "status_codes": {"200": 3479}}`
+
+| Server side, same window | Evidence |
+| --- | --- |
+| Access log (Log Analytics) | 3,532 requests to `/api/videos…`, all 200, from 1 replica; handler time p50 85 ms, p95 186 ms, p99 234 ms, max 401 ms. Per 10 seconds: 574–585 requests, p95 182–190 ms (steady, no drift) |
+| By route (handler time p95) | list 190 ms, status 119 ms, playback 200 ms |
+| Container Apps metrics | `UsageNanoCores` maximum 505,095,336 (0.505 vCPU of the 0.5 allocated): the replica was CPU-bound; `RestartCount` 0; `Replicas` 1; working set about 225 MB. The metric minutes were still being ingested when read, so only the maximum is quoted |
+
+Reading: about 58 requests per second is what one 0.5 vCPU replica gives for this read mix; the roughly 100 ms between handler p95 and client p95 is network plus waiting for one of the six worker threads. Not measured: uploads and transcoding under load (one video at a time by design), video bytes (served by Blob Storage, not by the API), more than one replica, a longer run.

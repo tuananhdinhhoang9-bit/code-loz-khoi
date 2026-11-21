@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 import portal_client  # noqa: E402
 import seed_remote  # noqa: E402
 import acceptance_test  # noqa: E402
+import load_test  # noqa: E402
 
 
 class FakeClient:
@@ -107,3 +108,13 @@ def test_acceptance_profile_check_accepts_only_the_project_output_profile():
     assert not acceptance_test.matches_profile({"streams": [video, video], "format": container})
     assert not acceptance_test.matches_profile({"streams": [video], "format": {"format_name": "matroska,webm"}})
     assert not acceptance_test.matches_profile({})  # ffprobe không đọc được file
+
+
+def test_load_test_percentiles_are_real_samples_and_errors_are_counted():
+    values = sorted(float(number) for number in range(1, 101))
+    assert load_test.percentile(values, 50) == 50.0 and load_test.percentile(values, 95) == 95.0
+    assert load_test.percentile([7.0], 95) == 7.0 and load_test.percentile([], 95) is None
+    assert load_test.percentile([1.0, 2.0, 3.0], 95) == 3.0  # nearest rank: không nội suy ra số không có trong mẫu
+    result = load_test.summary([("list", 200, 10.0), ("list", 200, 20.0), ("status", 503, 30.0), ("status", 0, 40.0)])
+    assert result["requests"] == 4 and result["errors"] == 2 and result["error_rate_percent"] == 50.0
+    assert result["p50_ms"] == 20.0 and result["p95_ms"] == 40.0 and result["max_ms"] == 40.0

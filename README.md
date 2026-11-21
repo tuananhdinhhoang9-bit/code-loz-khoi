@@ -1,12 +1,24 @@
 # Video Cloud Portal — Codex Starter Pack
 
-Ứng dụng Flask/Jinja + PostgreSQL + FFmpeg cho đề tài số 10 “Video Upload and Processing Portal” (`references/10_video_upload_and_processing_portal.pdf`). Phase 01–06 chạy local đã hoàn thành. **Từ 2026-11-17 đích triển khai là VPS Windows Server (không dùng Google Cloud)**: Phase 07 đã chuẩn bị mã nguồn, script và tài liệu, kiểm thử trên Windows với PostgreSQL và FFmpeg thật; **chưa cài lên VPS** (đó là Phase 08). Trạng thái chi tiết: `docs/PROGRESS.md`.
+Ứng dụng Flask/Jinja + PostgreSQL + FFmpeg cho đề tài số 10 “Video Upload and Processing Portal” (`references/10_video_upload_and_processing_portal.pdf`). Trạng thái chi tiết và bằng chứng kiểm thử: `docs/PROGRESS.md`.
+
+## Hai bản triển khai, hai nhánh
+
+Mã ứng dụng (`app/`, `worker/`, `tests/`) giống nhau ở mọi nhánh; ứng dụng chọn nơi chạy bằng cấu hình (`STORAGE_BACKEND`, `QUEUE_BACKEND`, `AUTH_PROVIDER`). Mỗi nhánh dưới đây chỉ giữ tài liệu và công cụ triển khai của riêng nó, kèm README hướng dẫn.
+
+| Nhánh | Dành cho | Database, lưu trữ, hàng đợi, đăng nhập | Trạng thái (2026-11-21) |
+| --- | --- | --- | --- |
+| [`vps`](../../tree/vps) | Một máy Windows Server | PostgreSQL trên máy, thư mục riêng tư, hàng đợi trong PostgreSQL, tài khoản nội bộ | Đang chạy thật tại `https://video.uploadmdm.id.vn` |
+| [`aws`](../../tree/aws) | AWS (bản nộp theo đề bài) | RDS PostgreSQL, S3, SQS, Cognito, ECS Fargate | Mã và Terraform đã sẵn, **chưa triển khai** (mới có chứng chỉ ACM) |
+| `main` | Phát triển | Chứa đủ cả hai bộ công cụ | Nguồn của hai nhánh trên |
+
+Sửa mã thì sửa ở `main`, rồi gộp sang `vps` và `aws` (`git switch vps; git merge main`). Không sửa trực tiếp mã ứng dụng trên hai nhánh đó.
 
 ## Mục tiêu triển khai hiện tại: AWS (từ 2026-11-20)
 
 Theo đề bài, bản nộp chạy trên AWS: ALB + ECS Fargate, RDS PostgreSQL, S3 riêng tư, SQS, Cognito. Xem `docs/AWS_ARCHITECTURE.md` (thiết kế, cấu hình container, việc chưa quyết) và `docs/PHASES.md` (phase 07–13). Trạng thái thật nằm ở cuối `docs/PROGRESS.md`: code đã có adapter AWS và test bằng stub, **chưa có gì được triển khai trên AWS**. Chế độ local và bản VPS bên dưới vẫn chạy được và dùng để phát triển.
 
-## Triển khai trên VPS Windows Server (Phase 07–08, đã lưu trữ)
+## Triển khai trên VPS Windows Server (đang chạy; tài liệu lưu trữ)
 
 | Tài liệu | Nội dung |
 | --- | --- |

@@ -803,3 +803,11 @@ The owner ran `scripts/acceptance_test.py` against the Azure URL and typed the a
 - Left on the deployment: the ten reference clips in the administrator's library (demo data) and the disabled helper account `acceptance-viewer@example.test`.
 - **Not done, still required by the brief:** failure drill on Azure (kill a transcode half-way, retry, one result) — Phase 10; monitoring dashboard, one alert, cost from Cost Management, load test with p95 — Phase 11; deploy and rollback through GitHub Actions — Phase 12; demo accounts, report, diagram check, cleanup guide — Phase 13. Sign-in is still local accounts, not Entra External ID.
 - No application code changed in this step; tests not re-run.
+
+### 2026-11-21 — Azure Phase 10 (part 1): failure-drill script — local PASS, Azure run pending
+The owner approved running the drill on Azure ("Làm luôn" to the question about killing the transcode job half-way).
+- New `scripts/failure_drill.py`: uploads one clip, waits until the portal reports measured FFmpeg progress above 0, runs the command given in `--on-processing` (it must stop the worker), then only watches and prints every status change with its time. Checks: worker stopped mid-conversion; no playback URL while the result is unfinished (409 on every probe); the job is processed again; final `READY`; one playable result; `complete` still returns the same job.
+- New `scripts/azure/Stop-TranscodeExecution.ps1`: lists the Running execution of the transcode job; stops it only with `-Apply`.
+- **Local run** (development server, PostgreSQL queue, 4K 29-second clip of 36.6 MB; the local worker and its FFmpeg child were killed at 5 % progress, a new worker was started by hand): `PROCESSING` at +2.0 s, stopped at +8.8 s, `RETRYING lease_expired` at +190.1 s, `PROCESSING` again at +199.8 s, `READY` at +235.5 s; 12 playback probes during the outage all 409; result 1,592,709 bytes, 29,000 ms. `DRILL_RESULT` 6 passed, 0 failed. Not Azure evidence.
+- `az containerapp job logs show` needs a CLI extension that is not installed, so the stop is triggered by the portal's own status (progress above 0), not by reading the job's log.
+- Next: the owner runs the drill against the Azure URL with a 1080p 29-second clip (they type the password); the script stops the execution through `az containerapp job stop`.

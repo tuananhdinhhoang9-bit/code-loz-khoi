@@ -84,3 +84,32 @@ Read from Azure afterwards (not from the script):
 | Log fix | Since the new image: 1,525 console lines from `app.*` loggers, 0 from `azure.*` |
 
 Not covered by this run: a worker killed half-way and its retry (failure drill); a load test; CI/CD rollback. The duplicate above happened by itself, not as a planned drill.
+
+## Azure deployment — failure drill: transcode stopped mid-conversion (2026-11-21, Phase 10)
+
+`scripts/failure_drill.py` run by the owner against the Azure URL (they typed the password) with a 1080p 29-second clip of 29,239,992 bytes; the stop was `az containerapp job stop` through `scripts/azure/Stop-TranscodeExecution.ps1 -Apply`. Video `4ad7bbd8-abe7-422c-b99c-a3658a4cfe36`, job `721d6dc1-f343-491b-ba5b-50a606a2f0c9`. Times UTC. Script result: `DRILL_RESULT` 6 passed, 0 failed, exit code 0.
+
+| Time | Source | Event |
+| --- | --- | --- |
+| 14:29:29 | script | upload finished, `complete` accepted, status `QUEUED` |
+| 14:29:30–31 | Container Apps system log | KEDA: metric `azure-servicebus-transcode-jobs` = 1, `Created 1 jobs`; execution `videoportal-transcode-t9fs5` |
+| 14:29:42–53 | system log | image pulled in 9.8 s (257 MB); container `worker` started |
+| 14:29:55.5 | worker log | `PROCESSING`, attempt 1, attempt ID `00fa0708-…`, `queue_age_seconds` 28.2 |
+| 14:30:05 | script | status showed measured progress 22 %; stop requested for `t9fs5` (exit code 0) |
+| 14:30:06.0 | worker log | FFmpeg process `exit_code: -15` (SIGTERM) after 9.9 s |
+| 14:30:06.1 | worker log | job -> `RETRYING`, error `worker_failed`; the script saw `RETRYING worker_failed` 0.9 s after the stop |
+| 14:30:06.8 | system log | `Job suspended`, pod deleted; execution status `Stopped` |
+| 14:30:23–27 | maintenance log, script | scheduled maintenance: `"recovered": 1, "published": 1`; the script saw `QUEUED` again |
+| 14:30:31 | system log | KEDA created execution `videoportal-transcode-h2js8` |
+| 14:30:53.2 | worker log | `PROCESSING`, **attempt 2**, new attempt ID `e9c09793-…` |
+| 14:31:05.8 | worker log | FFmpeg exit 0 in 11.7 s; `READY`, `output_bytes` 2,267,809; execution `Succeeded` 14:31:12 |
+
+| Claim | Evidence |
+| --- | --- |
+| No partial output was published | Nine playback requests between the stop and `READY` all answered 409; the published objects belong to attempt 2 only |
+| Honest progress | The status showed the measured 22 % while FFmpeg ran, then no percentage during `RETRYING` and `QUEUED` |
+| Bounded retry, one result | Attempt 2 of at most 3 succeeded; one playable file (2,241,064 bytes, 29,002 ms); `complete` repeated afterwards still returns the same job |
+| Recovery time | 60.2 s from the stop to `READY` (96.7 s after the upload). The maintenance schedule (every 5 minutes) happened to run 20 s after the stop; in the worst case this wait is about 5 minutes longer |
+| Queue afterwards | `activeMessageCount` 0, `deadLetterMessageCount` 0 |
+
+What this drill did **not** exercise on Azure: `az containerapp job stop` ends the container with SIGTERM, so the worker had time to record the failure and settle its message. A hard kill, where nothing is recorded and recovery must wait for the Service Bus lock and the job's lease to expire, was shown only locally (`RETRYING lease_expired` 181 s after the kill, see `docs/PROGRESS.md`). The dead-letter path and the three-attempt limit were not triggered on Azure either; they are covered by the automated tests.

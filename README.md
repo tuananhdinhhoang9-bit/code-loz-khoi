@@ -18,7 +18,7 @@ Mẫu cấu hình đầy đủ: `.env.example`. File `.env` thật chỉ nằm t
 ## Trạng thái thật (2026-11-21)
 
 - Site đang chạy tại `https://video.uploadmdm.id.vn` với ba service Windows `VideoPortal-API`, `VideoPortal-Worker`, `VideoPortal-Caddy` và PostgreSQL 18. Lần kiểm tra đầu-cuối gần nhất trên máy chủ: `scripts/smoke_test.py` 23/23 PASS (xem `docs/PROGRESS.md`).
-- **Mã backend đang chạy trên VPS cũ hơn nhánh này.** Nó được cài trước khi thêm các adapter AWS; từ đó chỉ ba file giao diện (`index.html`, `portal.css`, `portal.js`) được cập nhật trên máy chủ. Nhánh này là mã mới nhất chạy được ở chế độ VPS, gồm cả bản sửa hàng đợi `PgBroker` chưa có trên máy chủ. Cài lại backend lên VPS là việc chưa làm.
+- **Mã đang chạy trên VPS là nhánh này tại commit `2c35b23`** (cập nhật ngày 2026-11-21, có sao lưu mã và database trước khi thay; file `C:\VideoPortal\app\DEPLOYED_COMMIT.txt` trên máy chủ ghi commit đang chạy). Sau lần cập nhật đã kiểm tra `/health`, trang chủ, các API trả 401 khi chưa đăng nhập và log không có lỗi; **chưa kiểm tra đăng nhập, tải lên và phát video trên site thật với mã mới**. Chi tiết và cách quay lại bản cũ ở `docs/PROGRESS.md`.
 - Kiểm thử của nhánh này trên máy phát triển Windows (PostgreSQL 18 và FFmpeg thật): `RUN_DB_TESTS=1 pytest -q` -> **172 passed, 7 skipped** (các test bị bỏ qua cần Docker hoặc điều kiện không có trên máy đó).
 - Chưa có: sao lưu database ra ngoài VPS, kiểm thử tải, cảnh báo giám sát.
 

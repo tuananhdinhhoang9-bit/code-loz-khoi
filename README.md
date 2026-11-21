@@ -9,14 +9,14 @@ Mã ứng dụng (`app/`, `worker/`, `tests/`) giống nhau ở mọi nhánh; �
 | Nhánh | Dành cho | Database, lưu trữ, hàng đợi, đăng nhập | Trạng thái (2026-11-21) |
 | --- | --- | --- | --- |
 | [`vps`](../../tree/vps) | Một máy Windows Server | PostgreSQL trên máy, thư mục riêng tư, hàng đợi trong PostgreSQL, tài khoản nội bộ | Đang chạy thật tại `https://video.uploadmdm.id.vn` |
-| [`aws`](../../tree/aws) | AWS (bản nộp theo đề bài) | RDS PostgreSQL, S3, SQS, Cognito, ECS Fargate | Mã và Terraform đã sẵn, **chưa triển khai** (mới có chứng chỉ ACM) |
-| `main` | Phát triển | Chứa đủ cả hai bộ công cụ | Nguồn của hai nhánh trên |
+| [`aws`](../../tree/aws) | AWS — **đã bỏ, nhánh đóng băng** (2026-11-21) | RDS PostgreSQL, S3, SQS, Cognito, ECS Fargate | Chỉ có mã và Terraform, chưa từng triển khai (mới có một chứng chỉ ACM). Giữ để tham khảo |
+| `main` | Phát triển; bản cloud tiếp theo là **Azure** | Thiết kế Azure ở `docs/AZURE_ARCHITECTURE.md` | Azure mới ở mức thiết kế, chưa có mã hay tài nguyên nào |
 
-Sửa mã thì sửa ở `main`, rồi gộp sang `vps` và `aws` (`git switch vps; git merge main`). Không sửa trực tiếp mã ứng dụng trên hai nhánh đó.
+Sửa mã thì sửa ở `main`, rồi gộp sang `vps` (`git switch vps; git merge main`). Không sửa trực tiếp mã ứng dụng trên nhánh `vps`. Nhánh `aws` không nhận thay đổi nữa. Nhánh `azure` sẽ được tạo khi có mã và Terraform cho Azure.
 
-## Mục tiêu triển khai hiện tại: AWS (từ 2026-11-20)
+## Mục tiêu triển khai hiện tại: Azure (từ 2026-11-21)
 
-Theo đề bài, bản nộp chạy trên AWS: ALB + ECS Fargate, RDS PostgreSQL, S3 riêng tư, SQS, Cognito. Xem `docs/AWS_ARCHITECTURE.md` (thiết kế, cấu hình container, việc chưa quyết) và `docs/PHASES.md` (phase 07–13). Trạng thái thật nằm ở cuối `docs/PROGRESS.md`: code đã có adapter AWS và test bằng stub, **chưa có gì được triển khai trên AWS**. Chế độ local và bản VPS bên dưới vẫn chạy được và dùng để phát triển.
+Chủ dự án đã bỏ AWS và chọn Azure (đề bài cho chọn một trong AWS / Azure / GCP). Thiết kế: Container Apps (app `api`, job chuyển mã chạy theo sự kiện), Azure Database for PostgreSQL, Blob Storage riêng tư, Service Bus, Microsoft Entra External ID, Key Vault. Xem `docs/AZURE_ARCHITECTURE.md` (thiết kế, điều đã đối chiếu với tài liệu Azure, điều chưa đối chiếu, việc chưa quyết, chi phí sơ bộ) và `docs/PHASES.md` (phase 07–13). **Hiện mới là thiết kế: chưa kiểm tra tài khoản Azure, chưa có mã Azure, chưa có tài nguyên nào.** Mã adapter AWS vẫn còn trong `app/` cho tới khi Phase 07 thay bằng adapter Azure; tài liệu và Terraform của AWS là tài liệu lưu trữ. Chế độ local và bản VPS bên dưới vẫn chạy được và dùng để phát triển.
 
 ## Triển khai trên VPS Windows Server (đang chạy; tài liệu lưu trữ)
 

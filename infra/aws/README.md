@@ -1,5 +1,7 @@
 # Terraform cho AWS (Phase 08)
 
+> **LƯU TRỮ (2026-11-21): chủ dự án đã bỏ AWS (ADR-024).** Không `plan`, `apply` hay `destroy` thư mục này trừ khi chủ dự án yêu cầu. File state cục bộ (không nằm trong git) vẫn ghi một tài nguyên thật: chứng chỉ ACM.
+
 **Trạng thái (2026-11-21): đã `fmt`, `init`, `validate` và `plan`. Mới `apply` đúng một tài nguyên là chứng chỉ ACM (`aws_acm_certificate.site`, đã `ISSUED`); phần còn lại CHƯA `apply` (`Plan: 56 to add, 0 to change, 0 to destroy`, gồm cả 3 tài nguyên của `github.tf`).** Chưa có database, bucket, hàng đợi, user pool, load balancer hay service nào trên AWS. Thiết kế: `docs/AWS_ARCHITECTURE.md`, quyết định: ADR-021, ADR-023. Các file `.tf` ở thư mục cha `infra/` là bản GCP đã lưu trữ, không liên quan.
 
 ## Tạo ra những gì (48 khối `resource`)

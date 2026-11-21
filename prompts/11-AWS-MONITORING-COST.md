@@ -1,2 +1,5 @@
 # Phase 11 — Monitoring, alert and cost on AWS
+
+> **ARCHIVED (2026-11-21): AWS prompt, never executed, not to be run.** The deployment target is now Azure; follow `docs/PHASES.md` and the `prompts/*-AZURE-*.md` files instead.
+
 Implement **only phase 11**. Read `docs/COST_MONITORING.md` (archived GCP version, for the metric list), `docs/AWS_ARCHITECTURE.md`; use `$cloud-budget-guard`. CloudWatch dashboard: processing duration, queue age, output bytes, egress estimate, cost per clip. One actionable alarm tied to the failure drill: condition, evaluation window, observed delay, first recovery action. Request and job IDs correlated across API and worker logs; no credentials, presigned URLs or private content in logs. Workload-based monthly estimate (region, tiers, runtime hours, storage, requests, backups, egress) from prices looked up at the time, with the source and date. A budget alert is not a spending cap: say so.

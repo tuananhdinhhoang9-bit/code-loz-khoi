@@ -1,2 +1,5 @@
 # Phase 07 — AWS adapters (local only)
+
+> **ARCHIVED (2026-11-21): AWS prompt, already executed, not to be run again.** The deployment target is now Azure; follow `docs/PHASES.md` and the `prompts/*-AZURE-*.md` files instead.
+
 Implement **only phase 07**. Read `AGENTS.md`, `docs/AWS_ARCHITECTURE.md`, `docs/PIPELINE_RELIABILITY.md`, `docs/SECURITY.md`, `docs/API_CONTRACT.md`. Add, behind configuration and with the local mode as default: an S3 storage adapter with the same interface as `LocalStorage` (presigned POST with `content-length-range`, presigned GET, `head`, `write`, `delete`, VersionId as generation); an `SqsBroker` with `publish/receive/ack/dead_letter` and visibility extension from the heartbeat; a generic OIDC/JWKS token verifier for Cognito (`admin` from a group); the page's sign-in and upload calls for these backends, including CSP; Linux Dockerfiles for `api` and `worker`. Test with stubs/fakes only. Do not create AWS resources or call AWS. All existing tests must still pass. Mark only verified items PASS in `docs/PROGRESS.md`.

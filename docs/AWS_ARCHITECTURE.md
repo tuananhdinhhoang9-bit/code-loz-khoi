@@ -1,5 +1,7 @@
 # Kiến trúc trên AWS (mục tiêu triển khai từ 2026-11-20)
 
+> **LƯU TRỮ (2026-11-21): chủ dự án đã bỏ AWS, mục tiêu triển khai hiện là Azure (ADR-024, `docs/AZURE_ARCHITECTURE.md`).** Tài liệu này giữ lại để tham khảo và không còn được cập nhật. Trên AWS chỉ từng tạo một chứng chỉ ACM; không chạy lệnh AWS hay Terraform nào theo tài liệu này trừ khi chủ dự án yêu cầu.
+
 **Trạng thái: THIẾT KẾ + ADAPTER TRONG CODE (Phase 07, 2026-11-20).** Adapter S3, SQS và xác minh token Cognito đã viết và kiểm thử bằng stub/fake trên máy; **chưa có tài nguyên AWS nào được tạo và chưa có lời gọi nào tới AWS**. Image container chưa được build. Hạ tầng đã viết bằng Terraform trong `infra/aws/` và qua `terraform validate` (Phase 08), nhưng **chưa `plan`, chưa `apply`**. Mọi mục về hạ tầng dưới đây vẫn là kế hoạch cho đến khi `docs/PROGRESS.md` ghi PASS kèm bằng chứng thật. Quyết định: ADR-021, ADR-022 trong `docs/DECISIONS.md`.
 
 Lý do đổi: đề bài (`references/…pdf`, trang 1–2) yêu cầu **một nhà cung cấp cloud**, website chạy trên cloud, chuyển mã **bằng container**, hạ tầng tạo lại được từ code. Bản VPS Windows (ADR-015) lệch ở đúng các điểm đó. Dòng AWS trong bảng gợi ý của đề: *Application Load Balancer; ECS on Fargate API; RDS for PostgreSQL; S3; SQS; Lambda or Fargate workers; bounded Fargate tasks for conversion; Cognito; Secrets Manager.*

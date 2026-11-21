@@ -792,3 +792,14 @@ Evidence table with times and numbers: `docs/EVIDENCE.md` (section "first real u
 - Checks: `pytest tests/test_scripts.py` 5 passed (new unit test for the profile check). Full suite last run before these script changes: 182 passed, 7 skipped.
 - What this script cannot show, by design: a queue message delivered twice and a worker killed half-way (failure drill, Phase 10); CI/CD rollback (Phase 12); load test with p95 (Phase 11/13).
 - Next: the owner runs the script against the Azure URL (they type the administrator's password); then record the result here and in `docs/EVIDENCE.md`.
+
+### 2026-11-21 — Azure Phase 09 (part 5): instructor's Tests 1–3 on Azure — PASS (76 of 76 checks)
+The owner ran `scripts/acceptance_test.py` against the Azure URL and typed the administrator's password; I read the terminal and Azure afterwards. Tables: `docs/EVIDENCE.md` (section "instructor's Tests 1–3 run by script").
+- `ACCEPTANCE_RESULT {"passed": 76, "failed": 0, "skipped": 0, "storage": "blob"}`, exit code 0. Test 1: 50/50 (ten clips, playback with Range, `ffprobe` profile, thumbnail). Test 2: 13/13 (wrong type, declared and real oversize, corrupt file, 35-second clip). Test 3: 13/13 (repeated `complete`, no token, forged token, blob URL without or with a changed signature, second user refused, grant and revoke).
+- Azure side: 15 job executions, all `Succeeded`; outcomes `READY` 10, `FAILED` 2 (the two expected rejections), `no_op` 3; queue and dead-letter queue empty afterwards.
+- **Unplanned but real evidence for "same event twice -> one result":** the maintenance run at 13:50 UTC re-published three events whose jobs had waited more than `DISPATCH_SECONDS` = 300 s; the three duplicate messages were delivered later and each ended `no_op`. Ten videos, ten `READY`, one playback object each.
+- Finding, not changed: the transcode job runs one execution at a time (`max_executions = 1`) and a container takes about 25 s to start, so the ten clips took about ten minutes and the last waited 560 s. That is also why the duplicates appeared. Raising `max_executions` (for example to 3) would shorten the queue for the same total compute; it needs a line in `docs/DECISIONS.md` and belongs with the load test.
+- The log fix is confirmed on Azure: 0 lines from `azure.*` loggers out of 1,525 since the new image.
+- Left on the deployment: the ten reference clips in the administrator's library (demo data) and the disabled helper account `acceptance-viewer@example.test`.
+- **Not done, still required by the brief:** failure drill on Azure (kill a transcode half-way, retry, one result) — Phase 10; monitoring dashboard, one alert, cost from Cost Management, load test with p95 — Phase 11; deploy and rollback through GitHub Actions — Phase 12; demo accounts, report, diagram check, cleanup guide — Phase 13. Sign-in is still local accounts, not Entra External ID.
+- No application code changed in this step; tests not re-run.

@@ -831,3 +831,13 @@ The owner ran `scripts/load_test.py` against the Azure URL (password typed by th
 - `docs/DELIVERABLES.md`: load-test line ticked with a pointer to the evidence.
 - No application code changed.
 - Next: Phase 12 (deploy and rollback through GitHub Actions) needs the owner's approval for role assignments to the `deploy` identity; Phase 11 (dashboard, one alert, Cost Management figures) can start as soon as cost data exists (tomorrow).
+
+### 2026-11-21 — Azure Phase 12 (part 1): deploy and rollback workflows written, roles applied — first pipeline deploy pending
+The owner approved the role assignments twice: in principle ("Đồng ý cấp quyền") and after seeing the plan ("Apply đi"). Decision: ADR-029.
+- `deploy/azure/deploy.sh`: puts one image tag (a full commit SHA already in the registry) on the `api` app and both jobs, waits up to 5 minutes until the newest ready revision runs that image and `/health` reports `database: ok`; otherwise restores the previous image and exits 1.
+- `.github/workflows/ci.yml`: new job `deploy` after `images` on `main` (same OIDC identity, concurrency group `deploy-azure`). New `.github/workflows/rollback.yml`: manual, input `image_tag`, no tests and no build, same script.
+- `infra/azure/github.tf`: six role assignments for the `deploy` identity (app, environment, two jobs, two identities). `terraform plan`: `6 to add, 0 to change, 0 to destroy`; `apply` 21:50:41–21:51:22 local: `Apply complete! Resources: 6 added, 0 changed, 0 destroyed`. Total managed by Terraform: 44.
+- `infra/azure/apps.tf`: `lifecycle.ignore_changes` on the `image` of the app and the two jobs, so Terraform does not undo a pipeline deployment. `terraform fmt` clean, `validate` success.
+- `.gitattributes`: `*.sh` keeps LF line endings (the script runs on a Linux runner).
+- Not run locally: `deploy.sh` needs the Azure session of the `deploy` identity; its first real run is the push of this commit. No application code changed; application tests not re-run.
+- Next: watch the `ci` run of this commit (test, images, deploy), verify the revision on Azure, then the rollback demo (the owner starts the `rollback` workflow in the GitHub UI).

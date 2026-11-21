@@ -40,7 +40,7 @@ resource "azurerm_federated_identity_credential" "github_main" {
   audience            = ["api://AzureADTokenExchange"]
 }
 
-# Quyền duy nhất: đẩy (và kéo) image trong registry này. Quyền cập nhật app và job thuộc Phase 12.
+# Đẩy (và kéo) image trong registry này.
 resource "azurerm_role_assignment" "deploy_push" {
   count = var.github_repository == "" ? 0 : 1
 
@@ -49,6 +49,29 @@ resource "azurerm_role_assignment" "deploy_push" {
   principal_id         = azurerm_user_assigned_identity.deploy[0].principal_id
 }
 
+# Phase 12: workflow được đổi image của app `api` và hai job, không hơn. Mỗi quyền gắn vào đúng một tài nguyên:
+# - Container Apps Contributor trên app (tạo revision mới) và trên environment (chỉ dùng tới quyền đọc và `join`);
+# - Container Apps Jobs Contributor trên từng job;
+# - Managed Identity Operator trên hai identity `api` và `worker`: Azure đòi quyền `assign` khi cập nhật một
+#   app/job đang gắn user-assigned identity. Quyền này không cho đọc secret hay dữ liệu.
+locals {
+  deploy_targets = {
+    api             = { scope = one(azurerm_container_app.api[*].id), role = "Container Apps Contributor" }
+    environment     = { scope = azurerm_container_app_environment.main.id, role = "Container Apps Contributor" }
+    transcode       = { scope = one(azurerm_container_app_job.transcode[*].id), role = "Container Apps Jobs Contributor" }
+    maintenance     = { scope = one(azurerm_container_app_job.maintenance[*].id), role = "Container Apps Jobs Contributor" }
+    api_identity    = { scope = azurerm_user_assigned_identity.api.id, role = "Managed Identity Operator" }
+    worker_identity = { scope = azurerm_user_assigned_identity.worker.id, role = "Managed Identity Operator" }
+  }
+}
+
+resource "azurerm_role_assignment" "deploy_update" {
+  for_each = { for name, target in local.deploy_targets : name => target if var.github_repository != "" && var.deploy_apps }
+
+  scope                = each.value.scope
+  role_definition_name = each.value.role
+  principal_id         = azurerm_user_assigned_identity.deploy[0].principal_id
+}
 output "github_client_id" {
   description = "Giá trị của secret AZURE_CLIENT_ID trong kho GitHub (ID công khai của identity, không phải mật khẩu)."
   value       = one(azurerm_user_assigned_identity.deploy[*].client_id)

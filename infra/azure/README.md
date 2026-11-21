@@ -77,6 +77,19 @@ Chứng chỉ miễn phí của Container Apps chỉ cấp được khi tên mi�
 5. Gắn tên miền và xin chứng chỉ: `az containerapp hostname add` rồi `az containerapp hostname bind --validation-method CNAME` (chưa thử).
 6. Quay lui: đổi bản ghi `video` về bản ghi A cũ. Service trên VPS không bị sửa trong suốt quá trình.
 
+## CI/CD và rollback (Phase 12, ADR-029)
+
+Sau lần `apply` đầu tiên, image đang chạy do GitHub Actions quyết định, không phải `image_tag` trong `terraform.tfvars` (Terraform bỏ qua thay đổi của thuộc tính `image`).
+
+- Mỗi lần push lên `main`: workflow `ci` chạy test, build hai image theo SHA của commit, rồi `deploy/azure/deploy.sh` đổi image của app `api` và hai job, chờ revision mới khoẻ. Không khoẻ sau 5 phút thì script tự đưa image cũ trở lại và báo lỗi.
+- Quay lại bản cũ: GitHub > Actions > `rollback` > Run workflow, nhập SHA đầy đủ của commit cần quay về. Không test, không build.
+- Xem image đang chạy:
+
+```powershell
+az containerapp show --name videoportal-api --resource-group videoportal-rg --query "properties.template.containers[0].image" -o tsv
+```
+
+Identity `deploy` chỉ có: `AcrPush` trên registry, `Container Apps Contributor` trên app `api` và environment, `Container Apps Jobs Contributor` trên hai job, `Managed Identity Operator` trên hai identity `api` và `worker`.
 ## Chi phí và dọn dẹp
 
 Phần cố định ước tính khoảng 49 USD/tháng, tức khoảng 1,6 USD/ngày, ở `malaysiawest` (PostgreSQL B1ms + 32 GiB, registry Basic, private DNS zone, cộng load balancer và địa chỉ IP mà Azure tự tạo cho environment trong VNet); bảng và nguồn giá ở `docs/AZURE_ARCHITECTURE.md`. Gói Azure for Students liệt kê 750 giờ PostgreSQL B1ms và 32 GB mỗi tháng trong 12 tháng là miễn phí; nếu áp dụng cho subscription này thì phần cố định còn khoảng 27,5 USD/tháng, nhưng điều đó chưa xác nhận. Credit 100 USD theo tài liệu; số dư thật chưa xem. Hết credit thì mọi dịch vụ bị vô hiệu hoá. Ngân sách cảnh báo không phải trần chi tiêu.

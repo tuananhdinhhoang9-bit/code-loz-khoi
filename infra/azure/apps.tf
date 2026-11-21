@@ -76,6 +76,11 @@ locals {
 resource "azurerm_container_app" "api" {
   count = var.deploy_apps ? 1 : 0
 
+  # Sau lần tạo đầu, image do CI/CD đổi (deploy/azure/deploy.sh); Terraform không kéo nó về image_tag nữa (ADR-029).
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
+
   name                         = local.api_name
   resource_group_name          = azurerm_resource_group.main.name
   container_app_environment_id = azurerm_container_app_environment.main.id
@@ -152,6 +157,11 @@ resource "azurerm_container_app" "api" {
 
 resource "azurerm_container_app_job" "transcode" {
   count = var.deploy_apps ? 1 : 0
+
+  # Sau lần tạo đầu, image do CI/CD đổi (deploy/azure/deploy.sh); Terraform không kéo nó về image_tag nữa (ADR-029).
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
 
   name                         = "${local.name}-transcode"
   resource_group_name          = azurerm_resource_group.main.name
@@ -233,6 +243,11 @@ resource "azurerm_container_app_job" "transcode" {
 
 resource "azurerm_container_app_job" "maintenance" {
   count = var.deploy_apps ? 1 : 0
+
+  # Sau lần tạo đầu, image do CI/CD đổi (deploy/azure/deploy.sh); Terraform không kéo nó về image_tag nữa (ADR-029).
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
 
   name                         = "${local.name}-maintenance"
   resource_group_name          = azurerm_resource_group.main.name

@@ -218,6 +218,15 @@ $("login-form").addEventListener("submit", async (event) => {
   }
 });
 
+// Hai nút trên hero của màn hình chưa đăng nhập: muốn tải lên thì phải đăng nhập trước.
+const glide = () => (window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
+$("guest-upload").addEventListener("click", () => {
+  $("login-form").scrollIntoView({ block: "center", behavior: glide() });
+  $("email").focus({ preventScroll: true });
+  say("Hãy đăng nhập để tải video lên.");
+});
+$("guest-how").addEventListener("click", () => $("how").scrollIntoView({ block: "start", behavior: glide() }));
+
 $("logout").addEventListener("click", async () => {
   if (token) await api("/api/auth/logout", { method: "POST" }).catch(() => {});
   signOut();
@@ -532,6 +541,20 @@ function fillDashboard() {
   fillRunning(videos.filter(waiting));
   $("live-home").hidden = !videos.some((video) => ACTIVE.has(video.status));
 
+  // Câu tóm tắt trên banner ghép từ số đếm thật của thư viện.
+  const failed = videos.filter((video) => video.status === "FAILED").length;
+  const busy = videos.filter(waiting).length;
+  const parts = [`${stages.ready} sẵn sàng phát`];
+  if (busy) parts.push(`${busy} đang chờ hoặc xử lý`);
+  if (failed) parts.push(`${failed} cần tải lại`);
+  $("banner-summary").textContent = videos.length
+    ? `Thư viện có ${videos.length} video: ${parts.join(", ")}.`
+    : "Chưa có video nào. Thả một file vào ô Tải nhanh để bắt đầu.";
+  // Vòng tròn ở ô tổng số: cung màu dài đúng bằng tỉ lệ video đã sẵn sàng (chu vi vòng r=46 là 289).
+  $("ready-ring").toggleAttribute("hidden", !stages.ready);
+  $("ready-ring").style.strokeDasharray = `${videos.length ? (stages.ready / videos.length) * 289 : 0} 289`;
+  $("ready-share").textContent = videos.length ? `${stages.ready}/${videos.length} đã sẵn sàng` : "Chưa có video";
+
   // Video gần đây: API trả video mới nhất trước; ô đầu tiên được phóng to.
   const recent = videos.slice(0, 5).map((video, index) => mediaCard(video, index === 0 && videos.length > 2));
   if (!recent.length) {
@@ -550,6 +573,8 @@ function render() {
   if (!user) {
     lastRender = "";
     for (const id of ["recent", "running", "attention", "shared", "video-grid", "videos"]) $(id).replaceChildren();
+    // Đăng xuất rồi thì số liệu của người vừa dùng cũng không còn nằm lại trong trang.
+    for (const id of ["stat-total", "stat-ready", "stat-active", "stat-failed", "banner-summary", "ready-share", "nav-count"]) $(id).textContent = "";
     return;
   }
   const count = (matches) => videos.filter(matches).length;
@@ -825,6 +850,7 @@ function showFile() {
   $("file-card").hidden = !file;
   $("dropzone").classList.toggle("compact", Boolean(file));
   if (!file) return;
+  $("file-badge").textContent = typeNames[file.type] || "?";
   $("file-name").textContent = file.name;
   $("file-size").textContent = sizeText(file.size);
   $("file-type").textContent = typeNames[file.type] || "định dạng không được hỗ trợ";
@@ -835,16 +861,34 @@ function showFile() {
   $("file-warning").hidden = !problem;
   if (!$("title").value.trim()) $("title").value = file.name.replace(/\.[^.]+$/, "").slice(0, 200);
 }
-$("file").addEventListener("change", showFile);
-const dropzone = $("dropzone");
-for (const name of ["dragenter", "dragover"]) dropzone.addEventListener(name, (event) => { event.preventDefault(); dropzone.classList.add("over"); });
-for (const name of ["dragleave", "drop"]) dropzone.addEventListener(name, (event) => { event.preventDefault(); dropzone.classList.remove("over"); });
-dropzone.addEventListener("drop", (event) => {
-  if (event.dataTransfer.files.length) {
+// File chọn từ ô Tải nhanh ở Tổng quan cũng đi vào cùng một ô chọn file, rồi mở trang Tải video lên.
+function fileChosen() {
+  showFile();
+  if ($("file").files.length && window.location.hash !== "#upload") window.location.hash = "#upload";
+}
+$("file").addEventListener("change", fileChosen);
+$("quick-drop").addEventListener("click", () => $("file").click());
+for (const zone of [$("dropzone"), $("quick-drop")]) {
+  for (const name of ["dragenter", "dragover"]) zone.addEventListener(name, (event) => { event.preventDefault(); zone.classList.add("over"); });
+  for (const name of ["dragleave", "drop"]) zone.addEventListener(name, (event) => { event.preventDefault(); zone.classList.remove("over"); });
+  zone.addEventListener("drop", (event) => {
+    if (!event.dataTransfer.files.length) return;
     $("file").files = event.dataTransfer.files;
-    showFile();
-  }
-});
+    fileChosen();
+  });
+}
+
+// Khối kết quả ở đầu bảng tiến độ: hiện khi video xem được hoặc khi xử lý thất bại.
+let resultVideo = null;
+function showResult(videoId, ready, title, text) {
+  resultVideo = videoId;
+  $("upload-result").classList.toggle("failed", !ready);
+  $("result-title").textContent = title;
+  $("result-text").textContent = text;
+  $("result-open").hidden = !ready;
+  $("upload-result").hidden = false;
+}
+$("result-open").addEventListener("click", () => refresh().catch(() => {}).then(() => select(resultVideo)));
 
 // Theo dõi video vừa tải lên cho tới khi xem được, ngay trên trang tải lên.
 async function follow(videoId, title) {
@@ -865,20 +909,16 @@ async function follow(videoId, title) {
       } else if (status.status === "READY") {
         track("ready");
         setPhase("transcode", "done", "Hoàn tất");
-        note.textContent = "Video đã sẵn sàng. ";
-        const watch = document.createElement("button");
-        watch.type = "button";
-        watch.className = "link";
-        watch.textContent = "Xem ngay";
-        watch.addEventListener("click", () => refresh().catch(() => {}).then(() => select(videoId)));
-        note.append(watch);
+        note.textContent = "";
+        showResult(videoId, true, "Video đã sẵn sàng", `"${title}" đã chuyển mã xong và nằm trong Thư viện.`);
         say(`"${title}" đã sẵn sàng để xem.`);
         refresh().catch(() => {});
         return;
       } else if (status.status === "FAILED") {
         track("process", true);
         setPhase("transcode", "failed", "Thất bại");
-        note.textContent = (failures[status.error_code] || "Máy chủ không xử lý được video này.") + " Hãy tải một file khác.";
+        note.textContent = "";
+        showResult(videoId, false, "Xử lý thất bại", (failures[status.error_code] || "Máy chủ không xử lý được video này.") + " Hãy tải một file khác.");
         say(`"${title}" xử lý thất bại.`, true);
         refresh().catch(() => {});
         return;
@@ -899,6 +939,7 @@ $("upload-form").addEventListener("submit", async (event) => {
   const note = $("upload-note");
   $("upload-button").disabled = true;
   $("tracker-title").textContent = title;
+  $("upload-result").hidden = true;
   note.textContent = "";
   try {
     track("create");

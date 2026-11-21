@@ -23,7 +23,7 @@ For exact commands use README and PROGRESS; generated media/private queue files 
 
 ## Azure deployment — first evidence (2026-11-21, Phase 09 part 2)
 
-Collected by commands run on the day; times are UTC unless marked local (UTC+7). Nothing here covers signed-in use: no account exists on the Azure deployment yet.
+Collected by commands run on the day; times are UTC unless marked local (UTC+7). This first table stops before sign-in; the signed-in flow is in the next section.
 
 | What | Evidence |
 | --- | --- |
@@ -37,4 +37,24 @@ Collected by commands run on the day; times are UTC unless marked local (UTC+7).
 | Page | `GET /` -> 200; `portal.js` byte-identical to the repository; in the embedded browser the guest page renders, no console errors, no private data. CSP lists only `'self'` and the storage account origin |
 | Schema | Job execution `videoportal-maintenance-8m9qfkk` (command override `flask --app app.main init-db`): `Succeeded`, 06:39:16–06:39:49 |
 | Scheduled maintenance | Execution `videoportal-maintenance-29920720`: `Succeeded`, 06:40:00–06:40:29; Log Analytics line `{"event": "maintenance", "recovered": 0, "published": 0, "work": 0, "uploads": 0, "outputs": 0}` — the job read the database and listed Blob Storage with its managed identity |
-| Transcode job | Created, never executed (no message has been sent) |
+| Transcode job | Created; first executions are in the next section |
+
+## Azure deployment — first real upload, transcode and playback (2026-11-21, Phase 09 part 3)
+
+The owner created the administrator and used the page themselves; I did not sign in. Everything below is read from Azure afterwards (Container Apps job executions, Log Analytics, Service Bus counters). Times are UTC. The account's e-mail address is left out on purpose.
+
+| What | Evidence |
+| --- | --- |
+| First administrator | Created by the owner with `az containerapp exec … --command "flask --app app.main create-user EMAIL --admin"` (hidden prompt). A first try through an interactive `sh` session lost its connection while the password was being repeated; no account was created by it |
+| Sign-in | 12:35:51 `POST /api/auth/login` 200 (204 ms); then `/api/me`, `/api/videos`, `/api/users` 200 with the administrator's `uid` in the access log |
+| Upload 2 (the good one) | 12:46:21 `POST /api/videos` 201 (19 ms); browser `PUT` straight to Blob Storage (source blob 3,325,726 bytes, `video/mp4`, read back by the worker with a pinned `versionid`); 12:46:22 `POST …/complete` 202 (100 ms, includes the Service Bus send) |
+| KEDA starts the job | Execution `videoportal-transcode-vvrs2` started 12:46:27, 5 s after `complete`; `worker_started` 12:46:52 (about 25 s to pull the image and start the container) |
+| Transcode | `PROCESSING` attempt 1, `queue_age_seconds` 32.5; FFmpeg process exit 0 in 5.2 s; `READY` at 12:47:00, `processing_seconds` 5.98, `output_bytes` 1,304,864 = `video.mp4` 1,280,336 (`video/mp4`) + `thumbnail.jpg` 24,528 (`image/jpeg`); execution `Succeeded` 12:47:02. From `complete` to `READY`: 38.5 s |
+| Playback | 12:47:01 `GET …/playback` 200 and `GET …/thumbnail` 200; the owner reports that the video plays in the browser. The browser's own request to Blob Storage is not in our logs |
+| Upload 1 (rejected on purpose) | 12:43:30 `POST /api/videos` 201 (3.5 s, first call fetches the user delegation key), 12:43:33 `complete` 202; source 5,799,032 bytes. Execution `videoportal-transcode-pfg55` 12:43:57–12:44:26 `Succeeded`: validation exit code 2, job `FAILED` with `input_too_long` after attempt 1, no retry (permanent error) |
+| Delete | 12:46:29 `DELETE /api/videos/{id}` 200 for upload 1; Blob Storage answered 202 to the delete of the source blob version |
+| Queue afterwards | `transcode-jobs`: `activeMessageCount` 0, `deadLetterMessageCount` 0 |
+| Container is private | `HEAD` on the output blob URL without a SAS: 409 (public access is not permitted on the account) |
+| Managed identity only | Worker log: `DefaultAzureCredential acquired a token from ManagedIdentityCredential` for both Service Bus and Blob Storage; no key or connection string is configured |
+
+Not shown by this run: a second user being refused, HTTP range requests, retry and dead-letter on Azure, the failure drill, cost figures.

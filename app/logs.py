@@ -59,3 +59,5 @@ def configure_logging(log_dir, name, megabytes=10, backups=5):
         handler.setFormatter(formatter)
         root.addHandler(handler)
     logging.getLogger("waitress").setLevel(logging.WARNING)
+    # SDK Azure ghi mỗi request HTTP và mỗi lần đổi trạng thái AMQP ở mức INFO, lấn át log của ứng dụng.
+    logging.getLogger("azure").setLevel(logging.WARNING)

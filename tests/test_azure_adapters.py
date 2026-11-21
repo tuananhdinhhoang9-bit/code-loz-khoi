@@ -926,3 +926,22 @@ def test_one_job_run_reports_temporary_failures_instead_of_hiding_them(cloud, tm
     cloud.bus.fail = {"receive"}
     with pytest.raises(QueueError):
         run_once(cloud.engine, cloud.broker, cloud.store, tmp_path / "work")
+
+
+def test_azure_sdk_request_logs_stay_out_of_the_application_log():
+    import logging
+    from app.logs import configure_logging
+
+    root, sdk = logging.getLogger(), logging.getLogger("azure")
+    saved = (list(root.handlers), root.level, sdk.level)
+    try:
+        configure_logging(None, "sample")
+        # Logger con (azure.core…, azure.servicebus…) kế thừa mức này: request HTTP và trạng thái AMQP không còn được ghi.
+        assert not logging.getLogger("azure.core.pipeline.policies.http_logging_policy").isEnabledFor(logging.INFO)
+        assert not logging.getLogger("azure.servicebus._pyamqp.link").isEnabledFor(logging.INFO)
+        assert logging.getLogger("azure.storage.blob").isEnabledFor(logging.WARNING)
+        assert logging.getLogger("app.pipeline").isEnabledFor(logging.INFO)
+    finally:
+        root.handlers[:] = saved[0]
+        root.setLevel(saved[1])
+        sdk.setLevel(saved[2])

@@ -4,6 +4,8 @@ Project: Cloud Computing Final Project 10 — **Video Upload and Processing Port
 
 ## Branch `vps` (read first)
 
+**Note (2026-11-21): the cloud target is now Azure (ADR-024 on `main`); AWS was dropped. The "Deployment target" section below is the copy from before that change and is superseded by `AGENTS.md` on `main`. Nothing about this VPS edition changes.**
+
 This branch is the **Windows Server VPS edition**, cut from `main`. The AWS tooling (`infra/aws/`, `deploy/aws/`, the AWS prompts, `docs/AWS_ARCHITECTURE.md`) is not on this branch; it lives on `main` and `aws`. Here the `docs/WINDOWS_VPS_*.md` documents and `scripts/windows/` are the deployment material in use. Change application code on `main` and merge it into this branch; do not let `app/`, `worker/` or `tests/` diverge.
 
 ## Deployment target (changed 2026-11-20)

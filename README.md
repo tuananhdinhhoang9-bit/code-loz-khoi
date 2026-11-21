@@ -1,6 +1,6 @@
 # Video Portal — bản chạy trên VPS Windows Server (nhánh `vps`)
 
-Đề tài số 10 “Video Upload and Processing Portal” (`references/10_video_upload_and_processing_portal.pdf`). Nhánh này là bản chạy trọn trên **một máy Windows Server**: không cần tài khoản cloud nào. Bản dành cho AWS nằm ở nhánh [`aws`](../../tree/aws); nhánh `main` là nơi phát triển và chứa cả hai.
+Đề tài số 10 “Video Upload and Processing Portal” (`references/10_video_upload_and_processing_portal.pdf`). Nhánh này là bản chạy trọn trên **một máy Windows Server**: không cần tài khoản cloud nào. Bản cloud theo đề bài đang được thiết kế cho Azure trên nhánh `main` (chủ dự án đã bỏ AWS ngày 2026-11-21; bản AWS cũ còn ở nhánh [`aws`](../../tree/aws), đã đóng băng). Nhánh `main` là nơi phát triển.
 
 ## Mọi thứ nằm ở đâu
 

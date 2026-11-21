@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.auth import authorized_video, db_session, require_auth, video_data
 from app.models import OutboxEvent, OutputObject, OutputProfile, QueueMessage, TranscodeJob, Video, VideoPermission
-from app.pipeline import relay
+from app.pipeline import log_state, relay
 from app.queue_local import QueueError
 from app.queue_pg import make_broker
 from app.storage import URL_TTL, storage
@@ -135,6 +135,8 @@ def register_video_routes(app):
             session.add(TranscodeJob(id=job_id, video_id=video.id, source_generation=video.source_generation, profile_id=profile.id))
             session.flush()
             session.add(OutboxEvent(job_id=job_id, kind="transcode.requested", payload_json={"job_id": str(job_id), "source_generation": video.source_generation, "profile_id": str(profile.id)}))
+        # Một dòng nối ba ID với nhau: request của API, video và job; log của worker chỉ có job_id.
+        log_state(job_id, "QUEUED", video_id=str(video_id), request_id=g.request_id)
         relay_now()
         return {"job_id": str(job_id), "status": "QUEUED", "request_id": g.request_id}, 202
 

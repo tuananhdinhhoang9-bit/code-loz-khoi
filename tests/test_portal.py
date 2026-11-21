@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 import io
+import json
 import logging
 import time
 from unittest.mock import patch
@@ -80,6 +81,14 @@ def test_upload_complete_repeat_and_listing(portal):
         assert session.scalar(select(func.count()).select_from(OutboxEvent)) == 1
         assert session.scalar(select(Video)).owner_uid == "owner"
 
+
+def test_complete_logs_one_line_linking_request_video_and_job(portal, caplog):
+    app, client, engine = portal
+    created = uploaded(portal)
+    with caplog.at_level(logging.INFO, logger="app.pipeline"):
+        completed = client.post(f"/api/videos/{created['video_id']}/complete", headers=headers())
+    lines = [json.loads(record.getMessage()) for record in caplog.records if record.name == "app.pipeline"]
+    assert lines == [{"job_id": completed.json["job_id"], "status": "QUEUED", "video_id": created["video_id"], "request_id": completed.json["request_id"]}]
 
 def test_parallel_complete_creates_one_job_event(portal):
     app, client, engine = portal

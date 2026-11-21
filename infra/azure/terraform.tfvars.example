@@ -36,3 +36,6 @@ location = "malaysiawest"
 
 # Chỉ bật khi dọn dẹp sau demo, ngay trước terraform destroy
 # allow_destroy_data = true
+
+# Nơi nhận email khi cảnh báo nổ (Phase 11). Để trống thì cảnh báo chỉ hiện trong Azure Portal.
+# alert_email = "you@example.com"

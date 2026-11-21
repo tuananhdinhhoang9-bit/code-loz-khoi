@@ -37,7 +37,7 @@ Log không chứa mật khẩu, token, SAS hay nội dung video: formatter che `
 | Vì sao điều kiện này | `RETRYING` chỉ xảy ra với lỗi hệ thống (worker bị dừng, lỗi storage/queue). File sai định dạng hay quá dài đi thẳng tới `FAILED`, nên người dùng tải file sai không làm cảnh báo nổ. `recovered > 0` bắt trường hợp worker chết không kịp ghi gì |
 | Chu kỳ đánh giá / cửa sổ | 5 phút / 5 phút |
 | Độ trễ dự kiến | 3–10 phút sau sự cố: log tới Log Analytics chậm 1–3 phút, cộng tối đa 5 phút tới lần đánh giá kế tiếp, cộng thời gian gửi email |
-| Độ trễ đo được | Xem `docs/EVIDENCE.md` (ghi sau lần diễn tập có cảnh báo) |
+| Độ trễ đo được | 3 phút 19 giây trong lần diễn tập ngày 2026-11-21 (job ghi `RETRYING` lúc 15:29:16 UTC, cảnh báo **Fired** lúc 15:32:35). Một lần đo |
 | Hành động | Email tới chủ dự án qua action group `videoportal-ops`; tự đóng khi điều kiện hết đúng |
 | Việc làm đầu tiên | Mở workbook, ô "Lỗi và lần thử lại", lấy `job_id`; kiểm tra lần thử sau đã `READY` chưa; kiểm tra hàng đợi và dead-letter queue trống. Cùng một job hỏng 3 lần thì thành `FAILED` và phải tải lại |
 

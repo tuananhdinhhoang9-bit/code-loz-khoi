@@ -1,8 +1,8 @@
 # Terraform cho Azure (Phase 08)
 
-**Trạng thái (2026-11-21): ĐÃ `apply` toàn bộ trên subscription Azure for Students của chủ dự án, region `malaysiawest`: 38 tài nguyên (32 nền, 3 cho GitHub Actions, app `api` và hai job). Trang trả lời tại hostname mặc định của Azure với `/health` = `database: ok`. Đăng nhập đang dùng tài khoản nội bộ (`auth_provider = "local"`), chưa có external tenant của Entra; chưa có tài khoản nào nên luồng video chưa được thử trên Azure.** Mọi thứ đang tính tiền theo giờ (khoảng 1,6 USD/ngày, cộng khoảng 0,5 USD/ngày khi giữ `api_min_replicas = 1`). Công cụ: azurerm 4.81.0, random 3.9.1, Terraform 1.17.2. Thiết kế và lý do: `docs/AZURE_ARCHITECTURE.md`, ADR-024 đến ADR-028; bằng chứng: `docs/EVIDENCE.md`.
+**Trạng thái (2026-11-21): ĐÃ `apply` toàn bộ trên subscription Azure for Students của chủ dự án, region `malaysiawest`: Terraform quản lý 48 tài nguyên (nền, app `api`, hai job, identity và quyền cho GitHub Actions, workbook và cảnh báo). Trang chạy tại hostname mặc định của Azure Container Apps; đăng nhập, tải lên, chuyển mã, phát lại, diễn tập lỗi, load test, deploy và rollback qua GitHub Actions đều đã chạy thật (`docs/EVIDENCE.md`). Đăng nhập đang dùng tài khoản nội bộ (`auth_provider = "local"`), chưa phải Entra External ID. Tên miền riêng chưa được chuyển sang Azure.**
 
-## Tạo ra những gì (35 khối `resource`)
+## Tạo ra những gì (40 khối `resource`)
 
 | File | Tài nguyên |
 | --- | --- |
@@ -11,7 +11,7 @@
 | `data.tf` | PostgreSQL flexible server không có địa chỉ public; storage account bật versioning, tắt truy cập công khai và account key, CORS; container `media`; luật tự xoá phiên bản blob cũ; Service Bus Basic + queue `transcode-jobs`; Key Vault giữ mật khẩu DB |
 | `identity.tf` | Hai managed identity (`api`, `worker`) và các role assignment của chúng |
 | `apps.tf` | Container Registry, Log Analytics, Container Apps environment trong VNet; app `api`; job `transcode` (chạy khi có message) và job `maintenance` (theo lịch) |
-| `github.tf` | Identity `deploy` cho GitHub Actions: federated credential của nhánh `main`, role `AcrPush` trên registry (chỉ tạo khi đặt `github_repository`) |
+| `github.tf` | Identity `deploy` cho GitHub Actions: federated credential của nhánh `main`, `AcrPush` trên registry, và từ Phase 12 các quyền đổi image của app và hai job (chỉ tạo khi đặt `github_repository`) |
 
 Số tài nguyên thật: 32 ở bước nền, thêm 3 của `github.tf` (đã apply), thêm 3 nữa (app và hai job) khi `deploy_apps = true`.
 
@@ -61,9 +61,9 @@ App và job không tạo được khi image chưa có trong registry, nên:
 2. Build và đẩy hai image với cùng một tag bằng **GitHub Actions** (job `images` trong `.github/workflows/ci.yml`, chạy trên nhánh `main`, tag là commit SHA). Đây là cách duy nhất còn lại, đã thử ngày 2026-11-21:
    - `az acr build`: region `malaysiawest` không có ACR Tasks; ở `japaneast` thì Azure trả `TasksOperationsNotAllowed` cho subscription sinh viên.
    - Máy ảo Linux dùng tạm để chạy Docker: mọi cỡ nhỏ đã thử đều bị từ chối (`SkuNotAvailable` hoặc `QuotaExceeded`) ở `malaysiawest`, `japaneast`, `centralindia`.
-   - GitHub Actions đăng nhập Azure bằng OIDC qua identity `videoportal-deploy` (chỉ có role `AcrPush` trên registry, chỉ nhận token của nhánh `main`). Chủ dự án thêm bốn secret vào kho GitHub: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_REGISTRY`; giá trị nằm trong file `.env.github` ở thư mục gốc (không được commit). **Job này chưa chạy thành công lần nào.**
+   - GitHub Actions đăng nhập Azure bằng OIDC qua identity `videoportal-deploy` (chỉ nhận token của nhánh `main`; danh sách quyền ở mục CI/CD bên dưới). Chủ dự án thêm bốn secret vào kho GitHub: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_REGISTRY`; giá trị nằm trong file `.env.github` ở thư mục gốc (không được commit). **Job này chưa chạy thành công lần nào.**
 3. Điền `image_tag`, đặt `deploy_apps = true` → `apply`: tạo app `api` và hai job.
-4. Tạo bảng: chạy một lần job `maintenance` với lệnh ghi đè `flask --app app.main init-db` (`az containerapp job start`; cú pháp ghi đè lệnh chưa được thử).
+4. Tạo bảng: chạy một lần job `maintenance` với lệnh ghi đè `flask --app app.main init-db` (`az containerapp job start`; đã chạy thành công ngày 2026-11-21).
 5. Kiểm thử trên địa chỉ mặc định (`default_url`) trước khi đụng tới DNS.
 
 ## Chuyển `video.uploadmdm.id.vn` sang Azure (chủ dự án đã chọn 2026-11-21; làm ở Phase 09)
@@ -92,7 +92,7 @@ az containerapp show --name videoportal-api --resource-group videoportal-rg --qu
 Identity `deploy` chỉ có: `AcrPush` trên registry, `Container Apps Contributor` trên app `api` và environment, `Container Apps Jobs Contributor` trên hai job, `Managed Identity Operator` trên hai identity `api` và `worker`.
 ## Chi phí và dọn dẹp
 
-Phần cố định ước tính khoảng 49 USD/tháng, tức khoảng 1,6 USD/ngày, ở `malaysiawest` (PostgreSQL B1ms + 32 GiB, registry Basic, private DNS zone, cộng load balancer và địa chỉ IP mà Azure tự tạo cho environment trong VNet); bảng và nguồn giá ở `docs/AZURE_ARCHITECTURE.md`. Gói Azure for Students liệt kê 750 giờ PostgreSQL B1ms và 32 GB mỗi tháng trong 12 tháng là miễn phí; nếu áp dụng cho subscription này thì phần cố định còn khoảng 27,5 USD/tháng, nhưng điều đó chưa xác nhận. Credit 100 USD theo tài liệu; số dư thật chưa xem. Hết credit thì mọi dịch vụ bị vô hiệu hoá. Ngân sách cảnh báo không phải trần chi tiêu.
+Giá niêm yết khi không có video nào: khoảng 67,8 USD/tháng, tức khoảng 2,26 USD/ngày, ở `malaysiawest`; trong đó khoảng 50 USD là phần cố định (PostgreSQL B1ms + 32 GiB, registry Basic, private DNS zone, cảnh báo, cộng load balancer và địa chỉ IP mà Azure tự tạo cho environment trong VNet), còn lại là bản `api` luôn bật và job bảo trì. Bảng đầy đủ, ngày đọc giá và số thật từ Cost Management: `docs/AZURE_MONITORING_COST.md`. Hướng dẫn dọn dẹp từng bước: `docs/CLEANUP.md`.
 
 Dọn dẹp sau demo: `terraform destroy` xoá mọi thứ ở đây, **kể cả database và toàn bộ video**. Key Vault đã xoá vẫn được Azure giữ 7 ngày trừ khi đặt `allow_destroy_data = true` trước khi destroy. Sau đó kiểm tra resource group đã trống và xem trang Cost Management.
 

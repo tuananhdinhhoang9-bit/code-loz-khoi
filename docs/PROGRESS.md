@@ -868,3 +868,16 @@ The owner approved creating the dashboard and one alert (about 1–2 USD/month) 
 - Cost Management already answers for this subscription: month-to-date 0.0125 USD at 15:12 UTC, clearly incomplete (PostgreSQL, Container Apps and Log Analytics not present yet). To be re-read on 2026-11-22.
 - **Not done:** the alert has not fired (it was created after today's drill); observed alert delay; real cost against the estimate; a budget.
 - Next: after the pipeline deploys this commit, repeat the failure drill once so the alert fires, record the delay and the e-mail, and check the "request -> job" panel.
+
+### 2026-11-21 — Azure Phase 11 (part 2): alert fired in a second drill; Phase 13 documents drafted — PASS, e-mail not confirmed
+Evidence: `docs/EVIDENCE.md` (section "second failure drill").
+- The pipeline deployed commit `2903d76` (revision `videoportal-api--0000005`, Healthy). The owner then ran the failure drill again: 6 passed, 0 failed; stopped at 24 %, `RETRYING worker_failed`, maintenance `recovered: 1`, attempt 2 `READY` 123.1 s after the stop (the first drill took 60.2 s; the difference is where the 5-minute maintenance schedule fell).
+- **The alert fired:** `videoportal-transcode-system-failure`, `Sev2`, `Fired` at 15:32:35 UTC, 3 min 19 s after the `RETRYING` line. Read through `Microsoft.AlertsManagement/alerts`. Whether the e-mail arrived is for the owner to confirm; not recorded.
+- The new log line works on Azure: `QUEUED` with `job_id`, `video_id`, `request_id` in the API log, so all seven workbook panels now have data.
+- Two helper agents (asked for by the owner) wrote documents; I reviewed them for secrets and IDs (none) and updated every statement that said the alert had not fired:
+  - `docs/AZURE_ARCHITECTURE.md` rewritten for the deployed system: Mermaid diagram with real resource names, 15 network flows, security boundaries, identity/role table, failure domains with what was observed, deviations from the brief. **The Mermaid block has not been render-tested on GitHub.**
+  - `docs/DESIGN_REPORT.md`, `docs/DEMO_SCRIPT.md` (13 min 45 s plan, not rehearsed end to end), `docs/CLEANUP.md` (written, not executed), `docs/DELIVERABLES.md` (Azure wording; ticked: design report, cleanup steps, demo script, monitoring and alert).
+- `infra/azure/README.md` and the comment in `identity.tf` no longer describe the pre-deployment state (48 resources, video flow tested, roles used for real).
+- A copy of the drill clip is kept at `.local/drill-1080p.mp4` (gitignored); the FFmpeg command to recreate it is in the demo script.
+- Committed with `[skip ci]`: documentation and comments only.
+- **Still open:** demo Owner and Viewer accounts and sharing some reference clips with the Viewer (the owner creates accounts in the page); Cost Management figures to re-read on 2026-11-22; the instructor's agreement on local accounts instead of Entra External ID; a rehearsal of the demo script; a screenshot of the workbook; `api_min_replicas = 0` and `terraform destroy` after the presentation.

@@ -1,7 +1,7 @@
-# Danh tính của workload: hai user-assigned managed identity, không có khoá hay client secret nào.
+# Danh tính của workload: hai user-assigned managed identity, không có khoá hay client secret nào (identity thứ ba, `deploy`, ở github.tf).
 #   api    - app api: ký SAS, đọc/xoá blob, gửi message.
 #   worker - hai job (transcode, maintenance): đọc nguồn, ghi output, nhận/gửi message; KEDA dùng nó để đếm message.
-# Danh sách role suy ra từ code và tài liệu, CHƯA được kiểm chứng trên Azure thật (xem README).
+# Danh sách role này đã chạy được trên Azure thật ngày 2026-11-21 (upload, chuyển mã, phát lại, xoá). Chưa thử thu hẹp thêm.
 
 resource "azurerm_user_assigned_identity" "api" {
   name                = "${local.name}-api"

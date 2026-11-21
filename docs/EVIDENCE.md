@@ -157,3 +157,27 @@ Repository `main`; identity `videoportal-deploy` through OIDC, no stored passwor
 | Roll forward | The push of the commit that records this table starts `ci` again and deploys that commit; its result is in `docs/PROGRESS.md` |
 
 Not shown: the script's automatic restore when a new revision never becomes healthy (no broken image was deployed on purpose); a rollback across a database schema change (there was none; schema changes are additive by rule, ADR-020).
+
+## Azure deployment — second failure drill: alert fired, request linked to job (2026-11-21, Phase 11)
+
+Same script and clip as the first drill, run by the owner after the alert rule existed and after the pipeline deployed commit `2903d76` (run ID not read (GitHub API rate limit); revision `videoportal-api--0000005`). Video `2c8dd22d-922e-41fb-b77e-48802bfeeb75`, job `138ff53f-4402-4cd6-9ca7-cb201a47e769`. Times UTC. `DRILL_RESULT`: 6 passed, 0 failed.
+
+| Time | Source | Event |
+| --- | --- | --- |
+| 15:28:34 | API log | `app.pipeline` line `QUEUED` with `job_id`, `video_id` and `request_id` `35dd0e8b-1cee-4a24-9c7f-809f96d4c6c4` — the new line that links a request to a job |
+| 15:29:06.8 | worker log | `PROCESSING`, attempt 1 (execution `videoportal-transcode-dqxjm`), `queue_age_seconds` 32.7 |
+| 15:29:15 | script | stop requested at 24 % measured progress |
+| 15:29:16.1 | worker log | `RETRYING`, error `worker_failed` |
+| 15:30:25 | maintenance log | `"recovered": 1, "published": 1` |
+| 15:31:06.4 | worker log | `PROCESSING`, attempt 2 (execution `videoportal-transcode-vzrvp`) |
+| 15:31:18.6 | worker log | `READY`, `processing_seconds` 12.2, `output_bytes` 2,267,809; recovered 123.1 s after the stop |
+| **15:32:35** | Azure Monitor (`Microsoft.AlertsManagement/alerts`) | alert of rule `videoportal-transcode-system-failure`: severity `Sev2`, monitor condition **`Fired`**, state `New` |
+
+| Claim | Evidence |
+| --- | --- |
+| Alert delay | 3 min 19 s from the `RETRYING` line (15:29:16) to `Fired` (15:32:35); inside the expected 3–10 minutes. One measurement |
+| Alert is tied to the drill | It is the only alert in the resource group; the rule was created at 15:17 and had nothing to fire on until this stop |
+| No partial output | 10 playback probes between the stop and `READY`, all 409 |
+| Request -> video -> job | The `QUEUED` line above gives all three IDs; the worker lines carry the same `job_id` with one `attempt_id` per attempt |
+
+Not confirmed here: that the e-mail reached the owner's mailbox (only the owner can see it); the automatic resolution of the alert (it was still `Fired` when read at 15:38); a screenshot of the workbook.

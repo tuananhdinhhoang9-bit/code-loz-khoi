@@ -2,6 +2,10 @@
 
 Project: Cloud Computing Final Project 10 — **Video Upload and Processing Portal**. Read `docs/REQUIREMENTS.md` first; the original PDF is in `references/` and takes precedence over our chosen implementation details.
 
+## Branch `vps` (read first)
+
+This branch is the **Windows Server VPS edition**, cut from `main`. The AWS tooling (`infra/aws/`, `deploy/aws/`, the AWS prompts, `docs/AWS_ARCHITECTURE.md`) is not on this branch; it lives on `main` and `aws`. Here the `docs/WINDOWS_VPS_*.md` documents and `scripts/windows/` are the deployment material in use. Change application code on `main` and merge it into this branch; do not let `app/`, `worker/` or `tests/` diverge.
+
 ## Deployment target (changed 2026-11-20)
 
 Production target is **AWS** (owner decision, ADR-021): ALB, ECS Fargate (`api` and `worker` containers), RDS for PostgreSQL, private S3, SQS + dead-letter queue, Cognito, Secrets Manager, Terraform in `infra/aws/`, GitHub Actions. Read `docs/AWS_ARCHITECTURE.md` and `docs/PHASES.md`. **Do not use Google Cloud**, Redis or Kubernetes. Where the rules below mention GCP, apply the AWS equivalent: IAM task roles instead of long-lived access keys, secrets in Secrets Manager, `terraform plan` freely but ask before `apply`/`destroy`, before anything that generates a bill, and before privileged IAM changes. Never write AWS access keys, account IDs with credentials, or presigned URLs into the repository or logs.

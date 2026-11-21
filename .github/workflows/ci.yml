@@ -1,9 +1,5 @@
-# Chạy test ở mọi lần push; ở nhánh main thì build hai image và đẩy lên ECR.
-# Không có secret nào trong kho: job `images` lấy quyền AWS tạm thời qua OIDC (infra/aws/github.tf).
-# Biến của kho (Settings > Secrets and variables > Actions > Variables):
-#   AWS_ROLE_ARN  - output `github_images_role_arn` của Terraform. Chưa đặt thì job `images` được bỏ qua.
-#   AWS_REGION    - ví dụ ap-southeast-2
-#   ECR_PREFIX    - tiền tố tên kho ECR, mặc định video-portal
+# Nhánh vps: chạy test ở mọi lần push. Việc build image cho AWS nằm ở nhánh main.
+# Không có secret nào trong kho.
 name: ci
 
 on:
@@ -59,40 +55,3 @@ jobs:
         run: |
           grep -E '^(FAILED|ERROR) ' pytest.log | head -n 9 | while read -r line; do echo "::error::${line:0:900}"; done
           tail -n 1 pytest.log | sed 's/^/::notice::/'
-
-  images:
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AWS_ROLE_ARN != ''
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      AWS_REGION: ${{ vars.AWS_REGION }}
-      ECR_PREFIX: ${{ vars.ECR_PREFIX || 'video-portal' }}
-      IMAGE_TAG: ${{ github.sha }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
-      - id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
-      - name: Build and push api and worker
-        env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
-        run: |
-          set -euo pipefail
-          for target in api worker; do
-            repository="${ECR_PREFIX}-${target}"
-            # Tag trong ECR không ghi đè được: commit đã có image thì bỏ qua thay vì báo lỗi khi chạy lại.
-            if aws ecr describe-images --repository-name "$repository" --image-ids imageTag="$IMAGE_TAG" >/dev/null 2>&1; then
-              echo "$repository:$IMAGE_TAG already exists, skipping"
-              continue
-            fi
-            docker build -f deploy/aws/Dockerfile --target "$target" -t "$REGISTRY/$repository:$IMAGE_TAG" .
-            docker push "$REGISTRY/$repository:$IMAGE_TAG"
-          done
-          echo "Pushed image tag: $IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"

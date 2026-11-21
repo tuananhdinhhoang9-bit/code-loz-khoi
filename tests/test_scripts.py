@@ -8,6 +8,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 import portal_client  # noqa: E402
 import seed_remote  # noqa: E402
+import acceptance_test  # noqa: E402
 
 
 class FakeClient:
@@ -92,3 +93,17 @@ def test_seed_refuses_a_dataset_that_does_not_match_its_manifest(tmp_path):
     (tmp_path / "manifest.json").write_text(json.dumps({"clips": clips[:9]}), encoding="utf-8")
     with pytest.raises(ValueError, match="ten clips"):
         seed_remote.load_clips(tmp_path)
+
+
+def test_acceptance_profile_check_accepts_only_the_project_output_profile():
+    video = {"codec_type": "video", "codec_name": "h264", "pix_fmt": "yuv420p", "width": 854, "height": 480}
+    audio = {"codec_type": "audio", "codec_name": "aac"}
+    container = {"format_name": "mov,mp4,m4a,3gp,3g2,mj2"}
+    assert acceptance_test.matches_profile({"streams": [video, audio], "format": container})
+    assert acceptance_test.matches_profile({"streams": [video], "format": container})  # nguồn không có âm thanh
+    for change in ({"codec_name": "hevc"}, {"pix_fmt": "yuv444p"}, {"width": 1280}, {"height": 720}):
+        assert not acceptance_test.matches_profile({"streams": [{**video, **change}, audio], "format": container})
+    assert not acceptance_test.matches_profile({"streams": [video, {**audio, "codec_name": "mp3"}], "format": container})
+    assert not acceptance_test.matches_profile({"streams": [video, video], "format": container})
+    assert not acceptance_test.matches_profile({"streams": [video], "format": {"format_name": "matroska,webm"}})
+    assert not acceptance_test.matches_profile({})  # ffprobe không đọc được file

@@ -106,7 +106,8 @@ def main():
     status, image, _ = client.call("GET", thumbnail["url"], auth=False, raw=True)
     check(status == 200 and image[:2] == b"\xff\xd8", "thumbnail is a JPEG", results)
     check(client.call("GET", tampered(playback["url"]), auth=False, raw=True)[0] == 403, "tampered storage signature is refused (403)", results)
-    check(client.call("GET", playback["url"].split("?")[0], auth=False, raw=True)[0] == 403, "storage URL without a signature is refused (403)", results)
+    # Blob Storage trả 409 (tài khoản cấm truy cập ẩn danh) thay vì 403 cho URL không có SAS.
+    check(client.call("GET", playback["url"].split("?")[0], auth=False, raw=True)[0] in {403, 409}, "storage URL without a signature is refused (403/409)", results)
     check(client.call("GET", video + "/playback", auth=False)[0] == 401, "playback without a token is refused (401)", results)
 
     if not args.keep:

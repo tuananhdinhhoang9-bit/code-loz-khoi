@@ -142,3 +142,18 @@ Result line: `LOAD_RESULT {"users": 10, "warmup_seconds": 10, "duration_seconds"
 | Container Apps metrics | `UsageNanoCores` maximum 505,095,336 (0.505 vCPU of the 0.5 allocated): the replica was CPU-bound; `RestartCount` 0; `Replicas` 1; working set about 225 MB. The metric minutes were still being ingested when read, so only the maximum is quoted |
 
 Reading: about 58 requests per second is what one 0.5 vCPU replica gives for this read mix; the roughly 100 ms between handler p95 and client p95 is network plus waiting for one of the six worker threads. Not measured: uploads and transcoding under load (one video at a time by design), video bytes (served by Blob Storage, not by the API), more than one replica, a longer run.
+
+## Azure deployment — deploy and rollback through GitHub Actions (2026-11-21, Phase 12)
+
+Repository `main`; identity `videoportal-deploy` through OIDC, no stored password or key. Times UTC. Run pages: `https://github.com/tuananhdinhhoang9-bit/code-loz-khoi/actions/runs/<run id>`.
+
+| Step | Evidence |
+| --- | --- |
+| Before | Revision `videoportal-api--0000001`, image tag `4a6353e…` (deployed earlier by Terraform from this machine) |
+| **Deploy by pipeline** | Push of commit `ea2ceac4147cad337de9414ef45f522e7138a5b1`; `ci` run `44916112596`: `test` success 14:51:46–14:52:55, `images` success 14:52:58–14:54:42, `deploy` success 14:54:45–14:56:27 |
+| After the deploy | Revision `videoportal-api--0000002` created 14:55:24, Healthy, 100 % of traffic, image tag `ea2ceac…`; `0000001` inactive; both jobs on `ea2ceac…`; `/health` 200 `database: ok`; `/api/videos` 401. `terraform plan` afterwards: `No changes` (Terraform does not pull the image back) |
+| **Rollback** | Started by the owner in the GitHub UI: workflow `rollback`, input `image_tag = 4a6353eba63eb22c690f35bf31c4e1b28222e0a0`; run `44916720116` (`workflow_dispatch` on `main`): job `rollback` success 14:59:08–15:00:35 (87 s), no tests and no build |
+| After the rollback | Revision `videoportal-api--0000003` created 14:59:42, Healthy, 100 % of traffic, image tag `4a6353e…`; `0000002` inactive; both jobs back on `4a6353e…`; `/health` 200 `database: ok`; `/api/videos` 401 |
+| Roll forward | The push of the commit that records this table starts `ci` again and deploys that commit; its result is in `docs/PROGRESS.md` |
+
+Not shown: the script's automatic restore when a new revision never becomes healthy (no broken image was deployed on purpose); a rollback across a database schema change (there was none; schema changes are additive by rule, ADR-020).

@@ -841,3 +841,12 @@ The owner approved the role assignments twice: in principle ("Đồng ý cấp q
 - `.gitattributes`: `*.sh` keeps LF line endings (the script runs on a Linux runner).
 - Not run locally: `deploy.sh` needs the Azure session of the `deploy` identity; its first real run is the push of this commit. No application code changed; application tests not re-run.
 - Next: watch the `ci` run of this commit (test, images, deploy), verify the revision on Azure, then the rollback demo (the owner starts the `rollback` workflow in the GitHub UI).
+
+### 2026-11-21 — Azure Phase 12 (part 2): deploy by pipeline and rollback demonstrated — PASS
+Table with run IDs, revisions and times: `docs/EVIDENCE.md` (section "deploy and rollback through GitHub Actions").
+- First pipeline deployment worked on the first run: `ci` run `44916112596` for commit `ea2ceac` — `test`, `images`, `deploy` all success, about 5 minutes from push to a healthy revision `videoportal-api--0000002`. Both jobs moved to the same tag. `terraform plan` afterwards: `No changes`.
+- Rollback: the owner started the `rollback` workflow in the GitHub UI with the tag `4a6353e…`; run `44916720116` success in 87 s; revision `videoportal-api--0000003` runs `4a6353e…` with 100 % of traffic, both jobs back on that tag, `/health` 200 `database: ok`.
+- A rollback creates a new revision with the old image (single-revision mode); it does not re-activate revision `0000001`. Recorded as a cost in ADR-029.
+- Not shown: the automatic restore branch of `deploy.sh` (needs a deliberately broken image); rollback across a schema change.
+- The push of this commit deploys it (roll forward); result in the next entry.
+- No application code changed; application tests ran in CI only (run `44916112596`, job `test` success).

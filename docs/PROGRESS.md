@@ -850,3 +850,10 @@ Table with run IDs, revisions and times: `docs/EVIDENCE.md` (section "deploy and
 - Not shown: the automatic restore branch of `deploy.sh` (needs a deliberately broken image); rollback across a schema change.
 - The push of this commit deploys it (roll forward); result in the next entry.
 - No application code changed; application tests ran in CI only (run `44916112596`, job `test` success).
+
+### 2026-11-21 — Azure Phase 12 (part 3): roll forward by pipeline — PASS; Phase 12 complete
+- `ci` run `44916956536` for commit `044b068`: `test` success 15:01:39–15:03:06 UTC, `images` success 15:03:09–15:04:45, `deploy` success 15:04:48–15:06:37. Revision `videoportal-api--0000004` created 15:05:32, Healthy, 100 % of traffic, image tag `044b068…`; both jobs on the same tag; `/health` 200 `database: ok`.
+- Sequence shown today with real IDs: revision 1 (`4a6353e`, Terraform) -> 2 (`ea2ceac`, pipeline) -> 3 (`4a6353e`, rollback workflow) -> 4 (`044b068`, pipeline).
+- This entry is committed with `[skip ci]`: it changes documentation only, so no new image is built and revision 4 stays the running one.
+- `docs/DELIVERABLES.md`: ticked what is now backed by evidence on Azure (HTTPS URL, source and image build, Terraform, automated and acceptance tests, CI/CD with deploy and rollback). Still open there: demo accounts, shared reference clips, the deployed architecture diagram, design report, monitoring dashboard and alert, cost table against real bills, cleanup steps, demo script.
+- Next: Phase 11 (dashboard, one alert, Cost Management figures — cost data for today's resources should exist from 2026-11-22), then Phase 13.

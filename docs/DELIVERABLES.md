@@ -2,13 +2,13 @@
 
 Source: PDF pages 3–4.
 
-- [ ] Deployed HTTPS application URL
+- [x] Deployed HTTPS application URL (Azure default hostname, `docs/EVIDENCE.md`; the custom domain is not switched)
 - [ ] Demo Owner and Viewer accounts; credentials handed privately to instructor (never committed)
-- [ ] Source code and Docker images/build instructions
-- [ ] Terraform + reproducible infrastructure steps
+- [x] Source code and Docker images/build instructions (`deploy/azure/Dockerfile`, built by the `ci` workflow)
+- [x] Terraform + reproducible infrastructure steps (`infra/azure/`, README)
 - [ ] 10 reference clips with titles/permissions/profile + deterministic seed script + expected results
-- [ ] Automated tests, invalid/oversize/overlong, actual forbidden API calls, idempotency
-- [ ] GitHub Actions CI/CD, proof of deploy and rollback
+- [x] Automated tests, invalid/oversize/overlong, actual forbidden API calls, idempotency (`tests/`, and `scripts/acceptance_test.py` run on Azure)
+- [x] GitHub Actions CI/CD, proof of deploy and rollback (runs and revisions in `docs/EVIDENCE.md`)
 - [ ] **Actual deployed** architecture diagram including GCP names, region, trust boundaries, network paths, failure domains
 - [ ] Short design report explaining decisions, limitations and recoveries
 - [ ] Monitoring dashboard and actionable alert, actual Cloud Run Job cancel/restore evidence

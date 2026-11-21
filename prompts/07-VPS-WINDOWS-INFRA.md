@@ -1,4 +1,0 @@
-# Phase 07 — Windows Server VPS infrastructure and migration (preparation only)
-
-> **ARCHIVED (2026-11-20): VPS prompt, already executed, not to be run again.** The deployment target is now AWS; follow `docs/PHASES.md` and the `prompts/*-AWS-*.md` files instead.
-Implement **only phase 07**. Read `AGENTS.md`, `docs/WINDOWS_VPS_ARCHITECTURE.md`, `docs/PIPELINE_RELIABILITY.md`, `docs/SECURITY.md`. No Google Cloud, Docker or WSL2. Audit the repository; write `scripts/windows/preflight.ps1` (read-only) and plan-by-default install/service/backup/restore scripts; replace the message broker with the PostgreSQL queue and the container runner with the native Job Object runner, reusing the outbox, lease and storage code; local accounts in PostgreSQL; Waitress behind Caddy; rotating JSON logs. Test on Windows with real PostgreSQL and FFmpeg. Do not install services, open ports, or touch the VPS. Mark only verified items PASS in `docs/PROGRESS.md`.

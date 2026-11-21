@@ -13,6 +13,12 @@ variable "github_repository" {
   }
 }
 
+variable "github_subject" {
+  description = "Chuỗi `sub` đầy đủ trong token OIDC của GitHub cho nhánh main. GitHub hiện phát dạng có kèm ID số: repo:owner@<id>/name@<id>:ref:refs/heads/main (đọc từ thông báo lỗi AADSTS700213 của lần chạy đầu). Để trống thì dùng dạng cũ suy ra từ github_repository."
+  type        = string
+  default     = ""
+}
+
 resource "azurerm_user_assigned_identity" "deploy" {
   count = var.github_repository == "" ? 0 : 1
 
@@ -30,7 +36,7 @@ resource "azurerm_federated_identity_credential" "github_main" {
   resource_group_name = azurerm_resource_group.main.name
   parent_id           = azurerm_user_assigned_identity.deploy[0].id
   issuer              = "https://token.actions.githubusercontent.com"
-  subject             = "repo:${var.github_repository}:ref:refs/heads/main"
+  subject             = var.github_subject != "" ? var.github_subject : "repo:${var.github_repository}:ref:refs/heads/main"
   audience            = ["api://AzureADTokenExchange"]
 }
 

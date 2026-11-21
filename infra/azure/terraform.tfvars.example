@@ -12,6 +12,11 @@ location = "malaysiawest"
 # deploy_apps = false
 # image_tag   = "initial"
 
+# Kho GitHub được phép đẩy image lên registry qua OIDC (chỉ nhánh main). Bỏ trống nếu chưa dùng.
+# github_subject là chuỗi `sub` đầy đủ mà GitHub phát; hiện có kèm ID số của chủ kho và của kho.
+# github_repository = "owner/repository"
+# github_subject    = "repo:owner@<owner id>/repository@<repository id>:ref:refs/heads/main"
+
 # Đăng nhập. oidc cần external tenant của Microsoft Entra External ID; local là phương án lùi.
 # auth_provider      = "oidc"
 # oidc_issuer        = ""

@@ -1,5 +1,5 @@
-# Nhánh vps: chạy test ở mọi lần push. Việc build image cho AWS nằm ở nhánh main.
-# Không có secret nào trong kho.
+# Chạy test ở mọi lần push và pull request. Không có secret nào trong kho.
+# Job build và deploy image lên Azure thuộc Phase 12 (docs/PHASES.md) và chưa được viết.
 name: ci
 
 on:

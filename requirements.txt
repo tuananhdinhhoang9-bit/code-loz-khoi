@@ -4,5 +4,7 @@ psycopg[binary]==3.3.8
 python-dotenv==1.2.4
 firebase-admin==7.7.0
 waitress==3.0.2
-boto3==1.44.7
 PyJWT[crypto]==2.15.1
+azure-identity==1.27.0
+azure-storage-blob==12.31.1
+azure-servicebus==7.15.0

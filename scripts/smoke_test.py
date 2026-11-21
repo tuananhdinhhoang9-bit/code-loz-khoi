@@ -1,7 +1,7 @@
-"""End-to-end smoke test against a RUNNING portal (API + worker behind Caddy or an AWS load balancer).
+"""End-to-end smoke test against a RUNNING portal (API + worker behind Caddy or Azure Container Apps).
 
-It signs in (local account or Amazon Cognito, whichever the portal reports), uploads one real clip the
-way the server asks (PUT to the portal, or a presigned form POST to S3), waits for the worker, plays
+It signs in (local account, or an OIDC ID token taken from PORTAL_ID_TOKEN, whichever the portal reports),
+uploads one real clip the way the server asks (PUT to the portal, or PUT to a Blob Storage SAS URL), waits for the worker, plays
 the result back with HTTP Range, checks that unauthenticated/forged requests are refused, then deletes
 the clip.
 
@@ -52,9 +52,11 @@ def main():
     check("waitress" not in (headers.get("Server") or "").lower(), "server software is not advertised", results)
     status, config, _ = client.call("GET", "/api/config", auth=False)
     provider = config.get("auth_provider")
-    check(status == 200 and provider in {"local", "cognito"}, f"portal reports its sign-in provider ({provider})", results)
+    check(status == 200 and provider in {"local", "oidc"}, f"portal reports its sign-in provider ({provider})", results)
     check(client.call("GET", "/api/videos", auth=False)[0] == 401, "listing without a token is refused (401)", results)
-    check(sign_in(client, args.email, "definitely-wrong-password") is None, "wrong password is refused", results)
+    if provider == "local":
+        # Với OIDC mật khẩu không đi qua script này nên không có gì để thử sai.
+        check(sign_in(client, args.email, "definitely-wrong-password") is None, "wrong password is refused", results)
     client.token = sign_in(client, args.email, password) or ""
     if not check(client.token and client.call("GET", "/api/me")[0] == 200, "sign-in succeeds and the API accepts the token", results):
         return 1
@@ -66,15 +68,13 @@ def main():
         print(created)
         return 1
     video = "/api/videos/" + created["video_id"]
-    to_s3 = created.get("upload_method") == "POST"
-    timings["storage"] = "s3" if to_s3 else "local"
-    if to_s3:
-        # S3 tự kiểm tra giới hạn đã ký: thân lớn hơn kích thước khai báo phải bị từ chối, không tạo object.
-        check(not upload(client, created, content + b"x", "video/mp4")[0], "S3 refuses a body larger than the signed size", results)
+    to_blob = "x-ms-blob-type" in (created.get("upload_headers") or {})
+    timings["storage"] = "blob" if to_blob else "local"
     accepted, status = upload(client, created, content, "video/mp4")
     timings["upload_seconds"] = round(time.monotonic() - started, 2)
     check(accepted, f"private upload accepted (HTTP {status})", results)
-    if not to_s3:
+    if not to_blob:
+        # Với Blob Storage, SAS không giới hạn kích thước và việc chống ghi đè do quyền "create" của SAS lo; chưa kiểm ở đây.
         check(upload(client, created, content, "video/mp4")[1] == 409, "second upload to the same slot is refused (no overwrite)", results)
     status, completed, _ = client.call("POST", video + "/complete")
     if not check(status == 202, f"job queued (HTTP {status} {completed.get('error', '')})", results):
@@ -116,8 +116,8 @@ def main():
     if provider == "local":
         check(client.call("GET", "/api/me")[0] == 401, "token no longer works after sign-out", results)
     else:
-        # ID token của Cognito không thu hồi được ở phía API; nó tự hết hạn (60 phút theo cấu hình app client).
-        print("NOTE  Cognito ID tokens stay valid until they expire; sign-out revocation is not checked", flush=True)
+        # ID token OIDC không thu hồi được ở phía API; nó tự hết hạn theo cấu hình của nhà cung cấp.
+        print("NOTE  OIDC ID tokens stay valid until they expire; sign-out revocation is not checked", flush=True)
 
     failed = [label for label, ok in results if not ok]
     print("SMOKE_RESULT " + json.dumps({"passed": len(results) - len(failed), "failed": len(failed), **timings}))

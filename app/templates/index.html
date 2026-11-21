@@ -94,11 +94,13 @@
 
         <form id="login-form" class="sign-card">
           <h2>Đăng nhập</h2>
-          <p class="hint">Tài khoản do quản trị viên cấp.</p>
-          <label for="email">Email</label>
-          <input id="email" type="email" autocomplete="username" placeholder="ban@example.com" required />
-          <label for="password">Mật khẩu</label>
-          <input id="password" type="password" autocomplete="current-password" required />
+          <p class="hint" id="login-hint">Tài khoản do quản trị viên cấp.</p>
+          <div id="local-login">
+            <label for="email">Email</label>
+            <input id="email" type="email" autocomplete="username" placeholder="ban@example.com" required />
+            <label for="password">Mật khẩu</label>
+            <input id="password" type="password" autocomplete="current-password" required />
+          </div>
           <button class="wide">Đăng nhập</button>
           <p class="hint">Phiên đăng nhập chỉ giữ trong trang này. Tải lại trang là phải đăng nhập lại.</p>
           <a class="health-link" href="{{ url_for('health') }}">Kiểm tra kết nối máy chủ</a>

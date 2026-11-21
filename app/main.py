@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 import re
 import time
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from dotenv import load_dotenv
@@ -12,9 +13,10 @@ from werkzeug.exceptions import HTTPException
 from sqlalchemy import URL, create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.storage import s3_origin
+from app.storage import blob_origin
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+OIDC_SETTINGS = ["OIDC_ISSUER", "OIDC_CLIENT_ID", "OIDC_JWKS_URL", "OIDC_AUTHORIZE_URL", "OIDC_TOKEN_URL"]
 access_log = logging.getLogger("app.access")
 
 
@@ -54,22 +56,22 @@ def load_settings():
             port=int(os.getenv("POSTGRES_PORT", "5432")),
             database=os.getenv("POSTGRES_DB", "video_portal"),
         )
-    region = os.getenv("AWS_REGION", "").strip()
-    pool = os.getenv("COGNITO_USER_POOL_ID", "").strip()
     settings = {
         "DATABASE_URL": database_url,
         "FIREBASE_PROJECT_ID": os.getenv("FIREBASE_PROJECT_ID", ""),
         "FIREBASE_WEB_API_KEY": os.getenv("FIREBASE_WEB_API_KEY", ""),
         "AUTH_PROVIDER": os.getenv("AUTH_PROVIDER", "firebase").strip().lower(),
-        # AWS (ADR-021). Không có access key nào ở đây: boto3 lấy quyền từ task role của ECS.
+        # Azure (ADR-024). Không có khoá hay connection string nào ở đây: SDK lấy quyền từ managed identity.
         "STORAGE_BACKEND": os.getenv("STORAGE_BACKEND", "local").strip().lower(),
         "QUEUE_BACKEND": os.getenv("QUEUE_BACKEND", "postgres").strip().lower(),
-        "AWS_REGION": region,
-        "S3_BUCKET": os.getenv("S3_BUCKET", "").strip(),
-        "SQS_QUEUE_URL": os.getenv("SQS_QUEUE_URL", "").strip(),
-        "SQS_DEAD_LETTER_URL": os.getenv("SQS_DEAD_LETTER_URL", "").strip(),
-        "OIDC_ISSUER": f"https://cognito-idp.{region}.amazonaws.com/{pool}" if region and pool else "",
-        "OIDC_CLIENT_ID": os.getenv("COGNITO_CLIENT_ID", "").strip(),
+        "AZURE_STORAGE_ACCOUNT": os.getenv("AZURE_STORAGE_ACCOUNT", "").strip(),
+        "AZURE_STORAGE_CONTAINER": os.getenv("AZURE_STORAGE_CONTAINER", "").strip(),
+        "SERVICEBUS_NAMESPACE": os.getenv("SERVICEBUS_NAMESPACE", "").strip(),
+        "SERVICEBUS_QUEUE": os.getenv("SERVICEBUS_QUEUE", "").strip(),
+        # OIDC (Microsoft Entra External ID): các giá trị lấy từ tài liệu OpenID configuration của tenant, đều công khai.
+        **{name: os.getenv(name, "").strip() for name in OIDC_SETTINGS + ["OIDC_LOGOUT_URL"]},
+        "OIDC_EMAIL_CLAIM": os.getenv("OIDC_EMAIL_CLAIM", "email").strip(),
+        "OIDC_ADMIN_ROLE": os.getenv("OIDC_ADMIN_ROLE", "admin").strip(),
         "MAX_UPLOAD_BYTES": env_int("MAX_UPLOAD_BYTES", 50_000_000, 1, 2_000_000_000),
         "MIN_FREE_BYTES": env_int("MIN_FREE_BYTES", 500_000_000, 0, 10**13),
         "DB_POOL_SIZE": env_int("DB_POOL_SIZE", 4, 1, 20),
@@ -83,6 +85,12 @@ def load_settings():
     return settings
 
 
+def https_url(value):
+    """URL công khai của nhà cung cấp đăng nhập: chỉ https, không kèm tài khoản, không có ký tự phá được header CSP."""
+    parts = urlsplit(value) if isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9:/?&=._~%+-]+", value) else None
+    return bool(parts and parts.scheme == "https" and parts.hostname and "@" not in parts.netloc)
+
+
 def check_runtime(app):
     """Chặn cấu hình nguy hiểm trước khi nhận request thật."""
     if os.getenv("K_SERVICE"):
@@ -93,29 +101,29 @@ def check_runtime(app):
     provider = app.config.get("AUTH_PROVIDER", "firebase")
     storage_backend = app.config.get("STORAGE_BACKEND", "local")
     queue_backend = app.config.get("QUEUE_BACKEND", "postgres")
-    if provider not in {"firebase", "local", "cognito"}:
-        raise ValueError("AUTH_PROVIDER must be firebase, local or cognito")
-    if storage_backend not in {"local", "s3"}:
-        raise ValueError("STORAGE_BACKEND must be local or s3")
-    if queue_backend not in {"postgres", "sqs"}:
-        raise ValueError("QUEUE_BACKEND must be postgres or sqs")
-    needed = []
-    if storage_backend == "s3":
-        needed += ["AWS_REGION", "S3_BUCKET"]
-    if queue_backend == "sqs":
-        needed += ["AWS_REGION", "SQS_QUEUE_URL", "SQS_DEAD_LETTER_URL"]
-    if provider == "cognito":
-        needed += ["AWS_REGION", "OIDC_ISSUER", "OIDC_CLIENT_ID"]
-    for name in needed:
-        if not app.config.get(name):
-            raise ValueError(f"{name} is required by the configured AWS backends")
-    # Hai giá trị này được ghép vào URL và header CSP nên chỉ nhận đúng dạng tên của AWS.
-    if needed and not re.fullmatch(r"[a-z]{2}(-[a-z]+)+-\d", app.config["AWS_REGION"]):
-        raise ValueError("AWS_REGION is not a valid region name")
-    if storage_backend == "s3" and not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,61}[a-z0-9]", app.config["S3_BUCKET"]):
-        raise ValueError("S3_BUCKET must be a bucket name without dots")
+    if provider not in {"firebase", "local", "oidc"}:
+        raise ValueError("AUTH_PROVIDER must be firebase, local or oidc")
+    if storage_backend not in {"local", "blob"}:
+        raise ValueError("STORAGE_BACKEND must be local or blob")
+    if queue_backend not in {"postgres", "servicebus"}:
+        raise ValueError("QUEUE_BACKEND must be postgres or servicebus")
+    # Các tên này được ghép vào URL và header CSP nên chỉ nhận đúng dạng tên tài nguyên của Azure.
+    patterns = {}
+    if storage_backend == "blob":
+        patterns |= {"AZURE_STORAGE_ACCOUNT": r"[a-z0-9]{3,24}", "AZURE_STORAGE_CONTAINER": r"[a-z0-9]([a-z0-9]|-(?!-)){1,61}[a-z0-9]"}
+    if queue_backend == "servicebus":
+        patterns |= {"SERVICEBUS_NAMESPACE": r"[a-z][a-z0-9-]{4,48}[a-z0-9]", "SERVICEBUS_QUEUE": r"[a-z0-9][a-z0-9._-]{0,62}"}
+    for name, pattern in patterns.items():
+        if not re.fullmatch(pattern, app.config.get(name) or ""):
+            raise ValueError(f"{name} is missing or is not a valid Azure resource name")
+    if provider == "oidc":
+        if not app.config.get("OIDC_CLIENT_ID") or not https_url(app.config.get("OIDC_ISSUER")):
+            raise ValueError("OIDC_ISSUER and OIDC_CLIENT_ID are required by AUTH_PROVIDER=oidc")
+        for name in ["OIDC_JWKS_URL", "OIDC_AUTHORIZE_URL", "OIDC_TOKEN_URL"] + (["OIDC_LOGOUT_URL"] if app.config.get("OIDC_LOGOUT_URL") else []):
+            if not https_url(app.config.get(name)):
+                raise ValueError(f"{name} must be an https URL")
     if environment == "production":
-        # Với S3, thư mục storage local không được dùng; thư mục tạm của worker vẫn phải riêng tư.
+        # Với Blob Storage, thư mục storage local không được dùng; thư mục tạm của worker vẫn phải riêng tư.
         for name in ["WORK_ROOT"] + (["STORAGE_ROOT"] if storage_backend == "local" else []):
             root = app.config.get(name)
             if not root or not Path(root).is_absolute():
@@ -126,14 +134,15 @@ def check_runtime(app):
 
 
 def content_security_policy(config):
-    """CSP của trang: chỉ cho gọi tới chính máy chủ, nhà cung cấp đăng nhập và (nếu dùng S3) đúng bucket riêng tư."""
+    """CSP của trang: chỉ cho gọi tới chính máy chủ, nhà cung cấp đăng nhập và (nếu dùng Blob Storage) đúng storage account."""
     connect, media = ["'self'"], ["'self'"]
     if config["AUTH_PROVIDER"] == "firebase":
         connect.append("https://identitytoolkit.googleapis.com")
-    if config["AUTH_PROVIDER"] == "cognito":
-        connect.append(f"https://cognito-idp.{config.get('AWS_REGION')}.amazonaws.com")
-    if config["STORAGE_BACKEND"] == "s3":
-        origin = s3_origin(config.get("S3_BUCKET"), config.get("AWS_REGION"))
+    if config["AUTH_PROVIDER"] == "oidc" and https_url(config.get("OIDC_TOKEN_URL")):
+        # Trang đổi mã đăng nhập lấy ID token bằng fetch tới token endpoint; chuyển hướng đăng nhập không cần CSP.
+        connect.append("https://" + urlsplit(config["OIDC_TOKEN_URL"]).netloc)
+    if config["STORAGE_BACKEND"] == "blob":
+        origin = blob_origin(config.get("AZURE_STORAGE_ACCOUNT"))
         connect.append(origin)
         media.append(origin)
     policy = f"default-src 'self'; connect-src {' '.join(connect)}; "

@@ -73,10 +73,11 @@ Sao lưu ba file `templates\index.html`, `static\portal.css`, `static\portal.js`
 
 ## Nhánh này không có gì
 
-- Terraform, Dockerfile và tài liệu AWS (`infra/aws/`, `deploy/aws/`, `docs/AWS_ARCHITECTURE.md`, các prompt AWS): xem nhánh `aws`.
+- Dockerfile, tài liệu và prompt cho Azure (`deploy/azure/`, `docs/AZURE_ARCHITECTURE.md`, `prompts/*-AZURE-*.md`): xem nhánh `main`.
+- Terraform, Dockerfile và tài liệu AWS (đã bỏ): xem nhánh `aws`.
 - Job build image trong GitHub Actions; ở nhánh này CI chỉ chạy test.
-- Một số tài liệu dùng chung (`AGENTS.md`, `docs/PHASES.md`, `docs/DECISIONS.md`, `docs/PROGRESS.md`) có nhắc tới các file AWS đó. Chúng là nhật ký chung của dự án, bản mới nhất nằm ở `main`.
-- Mã adapter AWS (`app/storage_s3.py`, `app/queue_sqs.py`, `app/auth_oidc.py`) vẫn ở đây vì mã ứng dụng giống nhau ở mọi nhánh; với cấu hình `local`/`postgres` thì ứng dụng không gọi tới dịch vụ AWS nào.
+- Một số tài liệu dùng chung (`AGENTS.md`, `docs/PHASES.md`, `docs/DECISIONS.md`, `docs/PROGRESS.md`) có nhắc tới các file Azure và AWS đó. Chúng là nhật ký chung của dự án, bản mới nhất nằm ở `main`.
+- Mã adapter Azure (`app/storage_blob.py`, `app/queue_servicebus.py`, `app/auth_oidc.py`) vẫn ở đây vì mã ứng dụng giống nhau ở mọi nhánh; với cấu hình `local`/`postgres` thì ứng dụng không gọi tới dịch vụ cloud nào và chạy được cả khi ba gói `azure-*` trong `requirements.txt` chưa được cài.
 
 ## Tài liệu chung
 

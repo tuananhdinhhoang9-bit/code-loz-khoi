@@ -63,7 +63,7 @@ def cleanup_uploads(engine, store, max_age_hours=24):
         except (OSError, HTTPException):
             logger.warning("cleanup could not delete one abandoned upload")
     if not hasattr(store, "root"):
-        # S3 không có file .tmp: upload dang dở không bao giờ thành object.
+        # Blob Storage không có file .tmp: upload dang dở không bao giờ thành blob.
         return removed
     cutoff = time.time() - max_age_hours * 3600
     inputs = store.root / "inputs"
@@ -82,7 +82,7 @@ def cleanup_outputs(engine, store, max_age_hours=24):
         active = {job_id.hex for job_id in session.scalars(select(TranscodeJob.id).where(TranscodeJob.status == "PROCESSING"))}
     removed = 0
     if not hasattr(store, "root"):
-        # S3: tên object là outputs/<job>/<attempt>/<file>; xoá từng object cũ không còn được trỏ tới.
+        # Blob Storage: tên blob là outputs/<job>/<attempt>/<file>; xoá từng blob cũ không còn được trỏ tới.
         cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
         for name in list(store.old_objects("outputs/", cutoff)):
             parts = name.split("/")

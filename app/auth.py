@@ -37,7 +37,7 @@ def require_auth(view):
         verifier = current_app.config.get("TOKEN_VERIFIER")
         if verifier is None:
             provider = current_app.config.get("AUTH_PROVIDER")
-            verifier = {"local": verify_local_token, "cognito": verify_oidc_token}.get(provider, verify_firebase_token)
+            verifier = {"local": verify_local_token, "oidc": verify_oidc_token}.get(provider, verify_firebase_token)
         try:
             claims = verifier(parts[1])
         except (auth.InvalidIdTokenError, ValueError):
@@ -110,11 +110,13 @@ def register_auth_routes(app):
     def auth_config():
         if app.config.get("AUTH_PROVIDER") == "local":
             return {"provider": "local", "request_id": g.request_id}
-        if app.config.get("AUTH_PROVIDER") == "cognito":
-            # Region và client ID là thông tin công khai của app client (không có client secret).
-            if not app.config.get("OIDC_ISSUER") or not app.config.get("OIDC_CLIENT_ID"):
+        if app.config.get("AUTH_PROVIDER") == "oidc":
+            # Địa chỉ đăng nhập và client ID là thông tin công khai của ứng dụng (public client, không có client secret).
+            names = ["OIDC_CLIENT_ID", "OIDC_AUTHORIZE_URL", "OIDC_TOKEN_URL"]
+            if not all(app.config.get(name) for name in names + ["OIDC_ISSUER", "OIDC_JWKS_URL"]):
                 abort(503, description="auth_not_configured")
-            return {"provider": "cognito", "region": app.config["AWS_REGION"], "client_id": app.config["OIDC_CLIENT_ID"], "request_id": g.request_id}
+            return {"provider": "oidc", "client_id": app.config["OIDC_CLIENT_ID"], "authorize_url": app.config["OIDC_AUTHORIZE_URL"],
+                    "token_url": app.config["OIDC_TOKEN_URL"], "logout_url": app.config.get("OIDC_LOGOUT_URL") or None, "request_id": g.request_id}
         key = app.config.get("FIREBASE_WEB_API_KEY")
         if not key or not app.config.get("FIREBASE_PROJECT_ID"):
             abort(503, description="auth_not_configured")

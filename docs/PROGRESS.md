@@ -661,6 +661,18 @@ The owner judged the live "Media Studio" interface too monochrome and too close 
 - Guest page of the live application in the embedded browser (`http://127.0.0.1:8000`, where static files load): hero, illustration and sign-in card render, the limit shows `200 MB, 30 giây`, no console errors, no horizontal overflow at 1440 px, 0 thumbnail/video elements.
 - Not verified: the live pages after sign-in (no account of mine on the live site; the administrator password was not reused), the public address in a real browser, phones. The owner is asked to hard-refresh (Ctrl+F5) and try sign-in, one upload and playback.
 - Rollback: copy the three files back from `ui-before-vibrant-2026-11-21\app\` into `C:\VideoPortal\app\app\` and `Restart-Service VideoPortal-API`.
+
+### 2026-11-21 — Two deployment branches pushed to GitHub: `vps` and `aws` (owner request)
+The owner asked for two editions on GitHub, one for the VPS and one "for the database", and confirmed that the second means the AWS edition and that the split should be two branches.
+- `main` (`60f6204`): README now lists the two branches and no longer claims the VPS is not installed; `infra/aws/README.md` status corrected (the ACM certificate is the one applied resource; plan is 56 to add).
+- **`vps` (`2c35b23`)**, cut from `main`: README rewritten for the Windows Server edition; AWS-only material removed (`infra/aws/`, `deploy/aws/`, `docs/AWS_ARCHITECTURE.md`, seven AWS prompts — 23 tracked files); CI reduced to the test job; a branch note in `AGENTS.md`.
+- **`aws` (`01037b5`)**, cut from `main`: README rewritten for the AWS edition, stating plainly that nothing is deployed; VPS-only material removed (`scripts/windows/`, `deploy/windows/`, six `docs/WINDOWS_VPS_*.md`, two VPS prompts — 23 tracked files); a branch note in `AGENTS.md`.
+- `app/`, `worker/` and `tests/` are identical on all three branches (`git diff main vps -- app worker tests` and the same for `aws`: empty). The application chooses its backends by configuration, so the editions differ only in deployment material and README. Rule written in the READMEs: change code on `main`, then merge into `vps` and `aws`.
+- `RUN_DB_TESTS=1 pytest -q` on `vps`: **172 passed, 7 skipped**; on `aws`: **172 passed, 7 skipped** (Windows development machine, PostgreSQL 18, real FFmpeg).
+- Before pushing: the lines added by these commits were scanned for keys, tokens, passwords, 12-digit account IDs, public IP addresses, signed URLs and e-mail addresses (only the loopback address `127.0.0.1` matched); no `.env`, `*.tfstate` or `*.tfvars` is tracked on any branch. The gitignored `infra/aws/terraform.tfstate` and `terraform.tfvars` are still on disk after the branch switches.
+- Pushed with a normal `git push origin main vps aws`; `git ls-remote --heads origin` equals the three local SHAs.
+- Found while writing the `vps` README: **the backend running on the VPS matches no commit in this repository.** It was installed before the AWS adapters were added; ten of its Python files in `app/` differ from `main` and three adapter modules are absent there. Only the three interface files on the server are current. Reinstalling the backend on the VPS from branch `vps` has not been done and was not requested.
+- Not verified: the GitHub Actions runs triggered by these pushes (not finished when this was written); installing either branch from a fresh clone; the Docker image build; anything on AWS.
 2. Confirmation that the Free plan permits the RDS, ALB, Fargate and Cognito resources in `infra/aws/`.
 3. GitHub repository URL -> push, then a workflow to build and push the two images.
 4. Owner approval of the first paid `apply`, with the plan output and the cost table in front of them.

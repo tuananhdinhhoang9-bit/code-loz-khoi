@@ -1,6 +1,6 @@
 # Kiến trúc trên Azure (mục tiêu triển khai từ 2026-11-21)
 
-**Trạng thái: THIẾT KẾ + ADAPTER TRONG CODE (Phase 07, 2026-11-21).** Adapter Blob Storage, Service Bus, đăng nhập OIDC, chế độ worker chạy một vòng và lệnh `maintain` đã viết và kiểm thử trên máy bằng fake, bằng SDK thật với lớp vận chuyển giả, và bằng một nhà cung cấp OIDC giả trong trình duyệt; **chưa có lời gọi nào tới Azure, chưa có tài khoản Azure nào được kiểm tra, chưa có tài nguyên nào, chưa có `infra/azure/`, image chưa build lần nào**. Mọi mục về hạ tầng dưới đây là kế hoạch cho đến khi `docs/PROGRESS.md` ghi PASS kèm bằng chứng thật. Quyết định: ADR-024, ADR-025 trong `docs/DECISIONS.md`.
+**Trạng thái: THIẾT KẾ + ADAPTER TRONG CODE (Phase 07, 2026-11-21).** Adapter Blob Storage, Service Bus, đăng nhập OIDC, chế độ worker chạy một vòng và lệnh `maintain` đã viết và kiểm thử trên máy bằng fake, bằng SDK thật với lớp vận chuyển giả, và bằng một nhà cung cấp OIDC giả trong trình duyệt; **chưa có lời gọi nào tới Azure, chưa có tài khoản Azure nào được kiểm tra, chưa có tài nguyên nào, image chưa build lần nào**. Hạ tầng đã viết bằng Terraform trong `infra/azure/` và qua `terraform validate` (Phase 08, 2026-11-21), nhưng **chưa `plan`, chưa `apply`** vì chưa ai đăng nhập Azure trên máy này. Mọi mục về hạ tầng dưới đây là kế hoạch cho đến khi `docs/PROGRESS.md` ghi PASS kèm bằng chứng thật. Quyết định: ADR-024, ADR-025 trong `docs/DECISIONS.md`.
 
 Lý do đổi: chủ dự án quyết định bỏ AWS và chỉ làm Azure (2026-11-21). Đề bài (`references/…pdf`, trang 1–2) cho chọn một trong AWS / Azure / GCP. Dòng Azure trong bảng gợi ý của đề: *App Service API; Azure Database for PostgreSQL; Blob Storage; Service Bus; Functions or Container Apps workers. Use bounded Container Apps Jobs for conversion.* Về danh tính: *Use … Entra External ID on Azure … or justify another OIDC provider. … put secrets in … Key Vault.*
 
@@ -105,13 +105,32 @@ Quyền cần cho hai identity, suy ra từ code và **chưa được kiểm ch�
 | PostgreSQL flexible server có bản 18 (bản phụ 18.6); private access cần subnet uỷ quyền (tối thiểu `/28`) và private DNS zone kết thúc bằng `.postgres.database.azure.com`; SKU nhỏ nhất B1ms = 1 vCore, 2 GiB | `…/azure/postgresql/flexible-server/concepts-supported-versions`, `…/concepts-networking-private`, `…/concepts-compute` |
 | Azure for Students: 100 USD credit, không cần thẻ, hạn một năm | `learn.microsoft.com/azure/education-hub/about-azure-for-students` |
 
+### Đối chiếu thêm ở Phase 08 (đọc ngày 2026-11-21)
+
+| Điều | Nguồn |
+| --- | --- |
+| Dừng một lần chạy job: `az containerapp job stop --job-execution-name …`; xem các lần chạy: `az containerapp job execution list` | `learn.microsoft.com/cli/azure/containerapp/job` |
+| Terraform `azurerm_container_app_job`: luật scale có `identity_id`; secret nhận `key_vault_secret_id` + `identity`; registry nhận `identity`; có `replica_timeout_in_seconds`, `replica_retry_limit` | tài liệu provider azurerm (`container_app_job`) |
+| KEDA `azure-servicebus`: khi dùng identity thì bắt buộc `namespace`; `messageCount` mặc định 5. Trang không nêu role RBAC cần có | `keda.sh/docs/latest/scalers/azure-service-bus` |
+| Mỗi app được cấp một FQDN mặc định; HTTPS kết thúc ở ingress (TLS 1.2/1.3); HTTP tự chuyển sang HTTPS; request hết hạn sau 240 giây | `…/container-apps/ingress-overview` |
+| Kiểu mạng của environment không đổi được sau khi tạo | `…/container-apps/networking` |
+| Phí quản lý chỉ áp dụng khi có profile Dedicated, hoặc khi dùng private endpoint / planned maintenance của environment | `…/container-apps/billing` |
+| Kéo image từ registry bằng managed identity cần role AcrPull | `…/container-apps/managed-identity-image-pull` |
+| Service Bus Basic: "queues only", message tối đa 256 KB; không có topic, session, transaction, duplicate detection | `…/service-bus-messaging/service-bus-premium-messaging`, trang giá Service Bus |
+| External tenant: authority dạng `https://<tên tenant>.ciamlogin.com/`; redirect URI kiểu Single-page application; app phải gắn với một user flow | `…/entra/external-id/customers/tutorial-single-page-app-vanillajs-prepare-app` |
+| `email` là optional claim với tài khoản trong tenant (phải bật trong app registration); không có claim `email_verified`; app role nằm trong claim `roles` | `…/entra/identity-platform/id-token-claims-reference`, `…/optional-claims-reference`, `…/external-id/customers/how-to-use-app-roles-customers` |
+| External ID miễn phí cho 50.000 người dùng hoạt động hằng tháng đầu tiên | `…/entra/external-id/customers/faq-customers` |
+| SAS: quyền Create = "Write a new blob…", quyền Write = "Create or write content…"; trang không nói Create có ghi đè được blob đã có hay không | `…/rest/api/storageservices/create-service-sas` |
+| Lưu trữ của PostgreSQL flexible server chỉ tăng được, không giảm được; subnet đã uỷ quyền không chứa được loại tài nguyên khác | `…/postgresql/flexible-server/concepts-storage`, `…/concepts-networking-private` |
+
+Hệ quả cho cấu hình: phải bật optional claim `email` cho ID token trong app registration (hoặc đặt `OIDC_EMAIL_CLAIM=preferred_username`); vì token của Entra không có `email_verified`, việc e-mail đã được xác minh hoàn toàn dựa vào user flow của tenant.
+
 ## Chưa đối chiếu được (phải kiểm tra trước khi viết code hoặc `plan`)
 
-- Bậc Basic của Service Bus có đủ queue, peek-lock, dead-letter và xác thực Entra hay không (các trang đã đọc không ghi rõ theo bậc).
-- Luật scale Service Bus bằng managed identity có dùng được cho **job** theo sự kiện không; nếu không thì phải dùng connection string trong Key Vault và ghi là lệch.
-- Lệnh dừng một lần chạy job giữa chừng (dự kiến `az containerapp job stop`); cần cho diễn tập sự cố.
-- App có ingress ngoài có sẵn hostname `*.azurecontainerapps.io` kèm chứng chỉ hợp lệ hay không; giới hạn thời gian và kích thước request của ingress.
-- Issuer và địa chỉ OpenID configuration của external tenant; claim e-mail trong ID token của tài khoản e-mail + mật khẩu; tên claim của app role.
+- Bậc Basic của Service Bus có dead-letter queue, peek-lock và xác thực Entra hay không (tài liệu chỉ ghi "queues only").
+- Luật scale Service Bus bằng managed identity chạy được cho **job** hay không (Terraform có trường này; lệnh CLI tương ứng còn ghi "Preview"), và identity đó cần role nào. Nếu không chạy được thì phải dùng connection string trong Key Vault và ghi là lệch.
+- Chứng chỉ của hostname mặc định có được trình duyệt tin ngay không; giới hạn kích thước request của ingress (file video không đi qua ingress, chỉ JSON).
+- Giá trị `iss` thật trong ID token của external tenant và địa chỉ OpenID configuration (lấy từ chính tenant khi đã tạo).
 - Request của trình duyệt kèm SAS có đi qua luật CORS như request thường không.
 - SAS chỉ có quyền `c` (create) có thật sự không ghi đè được blob đã tồn tại không (mã nguồn dựa vào điều này để một URL tải lên chỉ dùng được một lần).
 - Managed identity cần đúng những role nào để SAS do nó ký có quyền tạo/đọc blob và để xoá được từng phiên bản.
@@ -123,11 +142,11 @@ Quyền cần cho hai identity, suy ra từ code và **chưa được kiểm ch�
 
 | Việc | Vì sao cần | Chốt ở |
 | --- | --- | --- |
-| Loại tài khoản Azure | Azure for Students, dùng thử hay trả tiền quyết định credit, dịch vụ được dùng và quyền tạo external tenant | Phase 08 |
+| ~~Loại tài khoản Azure~~ | **Chủ dự án cho biết 2026-11-21: Azure for Students.** Chưa đọc từ tài khoản (chưa ai đăng nhập trên máy này); số dư credit chưa xem | Xác nhận bằng lệnh chỉ đọc sau `az login` |
 | Region | Dự kiến `southeastasia` (Singapore) vì gần Việt Nam; subscription sinh viên có thể bị giới hạn region | Phase 08 |
 | Quyền tạo external tenant và app registration | Thiếu quyền thì phải dùng phương án lùi ở mục 8 | Phase 08 |
-| Tên miền | Chứng chỉ managed cần CNAME trỏ thẳng về app, nên **không thử trước được trên `video.uploadmdm.id.vn` khi tên đó còn trỏ về VPS**. Lựa chọn: dùng hostname mặc định của Azure, hoặc một tên miền con mới, hoặc chuyển hẳn tên cũ (lúc đó bản VPS mất địa chỉ) | Trước Phase 09 |
-| Cách cấp quyền cho Terraform và GitHub Actions | Máy này chưa có Azure CLI; không dùng client secret dài hạn | Phase 08 |
+| ~~Tên miền~~ | **Đã chốt 2026-11-21: chuyển hẳn `video.uploadmdm.id.vn` sang Azure** (chủ dự án chọn; đề xuất là dùng hostname mặc định trước). Bản Azure được kiểm thử trên hostname mặc định, rồi mới đổi DNS; từ lúc đổi, bản VPS mất địa chỉ công khai và không có giai đoạn chạy song song trên tên này. Trình tự: `infra/azure/README.md` | — |
+| ~~Cách cấp quyền cho Terraform và GitHub Actions~~ | **Đã chốt 2026-11-21:** Terraform dùng phiên `az login` của chủ dự án (Azure CLI bản ZIP trong `.tools\azcli`), subscription qua biến môi trường `ARM_SUBSCRIPTION_ID`. GitHub Actions sẽ dùng federated credential (OIDC), thêm ở Phase 12 | — |
 | Chứng chỉ ACM còn lại trên AWS | Miễn phí nhưng là tài nguyên thật; xoá cần chủ dự án đăng nhập AWS | Khi chủ dự án muốn |
 | Ngân sách và thời gian giữ tài nguyên | PostgreSQL và registry tính tiền theo giờ/ngày kể cả khi không dùng | Trước Phase 09 |
 
@@ -152,7 +171,7 @@ Quyền cần cho hai identity, suy ra từ code và **chưa được kiểm ch�
 
 Ba dòng Container Apps chưa trừ phần miễn phí hằng tháng (180.000 vCPU-giây, 360.000 GiB-giây, 2 triệu request); với tải demo thì nhiều khả năng nằm trọn trong phần miễn phí, nhưng điều đó **chưa đo**. Nếu giữ `api` luôn có 1 replica để tránh chờ khởi động: thêm khoảng 15,8 USD/tháng theo giá idle (trước phần miễn phí).
 
-Chưa tính và chưa biết: sao lưu PostgreSQL, Key Vault (0,03 USD / 10.000 thao tác), luật alert, thuế. Bảng giá có một meter "Container Apps Environment Management Hour" 0,10 USD/giờ mà **chưa rõ áp dụng khi nào**; phải làm rõ trước khi `apply`, vì nếu tính liên tục thì đó là khoảng 73 USD/tháng. Thời lượng 60 giây mỗi clip và 15 giây mỗi lần `maintenance` là giả định, sẽ thay bằng số đo ở Phase 11. Với 100 USD credit của Azure for Students (chưa xác nhận tài khoản thuộc loại này), phần cố định 29 USD/tháng đủ cho khoảng ba tháng chạy liên tục.
+Chưa tính và chưa biết: sao lưu PostgreSQL, Key Vault (0,03 USD / 10.000 thao tác), luật alert, thuế. Bảng giá có một meter "Container Apps Environment Management Hour" 0,10 USD/giờ mà **chưa rõ áp dụng khi nào**; phải làm rõ trước khi `apply`, vì nếu tính liên tục thì đó là khoảng 73 USD/tháng. Thời lượng 60 giây mỗi clip và 15 giây mỗi lần `maintenance` là giả định, sẽ thay bằng số đo ở Phase 11. Với 100 USD credit của Azure for Students (loại tài khoản chủ dự án cho biết; số dư thật chưa xem), phần cố định 29 USD/tháng đủ cho khoảng ba tháng chạy liên tục.
 
 ## Miền lỗi
 

@@ -1,0 +1,32 @@
+# Sao chép thành terraform.tfvars (đã gitignore) rồi điền giá trị thật. Không đặt secret vào đây.
+# Subscription không ghi vào file: đặt biến môi trường ARM_SUBSCRIPTION_ID trước khi chạy (xem README).
+
+location = "southeastasia"
+
+# Tên miền riêng sẽ trỏ về Azure. Để trống nếu chỉ dùng hostname mặc định.
+# domain_name = "video.example.com"
+
+# Bước 1: để false, apply, rồi build và đẩy hai image lên registry với đúng image_tag.
+# Bước 2: đặt true và apply lần nữa để tạo app api và hai job.
+# deploy_apps = false
+# image_tag   = "initial"
+
+# Đăng nhập. oidc cần external tenant của Microsoft Entra External ID; local là phương án lùi.
+# auth_provider      = "oidc"
+# oidc_issuer        = ""
+# oidc_client_id     = ""
+# oidc_jwks_url      = ""
+# oidc_authorize_url = ""
+# oidc_token_url     = ""
+# oidc_logout_url    = ""
+# oidc_email_claim   = "email"
+
+# Kích thước (ảnh hưởng chi phí)
+# db_sku           = "B_Standard_B1ms"
+# db_version       = "18"
+# api_min_replicas = 0
+# worker_cpu       = 1
+# worker_memory    = "2Gi"
+
+# Chỉ bật khi dọn dẹp sau demo, ngay trước terraform destroy
+# allow_destroy_data = true

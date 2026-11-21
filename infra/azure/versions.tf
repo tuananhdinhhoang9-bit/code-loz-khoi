@@ -26,6 +26,10 @@ provider "azurerm" {
 
   # Storage account tắt account key, nên Terraform cũng phải dùng Entra ID khi đọc/ghi cấu hình blob.
   storage_use_azuread = true
+
+  # Terraform không tự đăng ký resource provider của subscription (kể cả lúc `plan`): việc đó làm bằng lệnh
+  # `az provider register` ở README, một lần, trước lần `apply` đầu tiên.
+  resource_provider_registrations = "none"
 }
 
 data "azurerm_client_config" "current" {}

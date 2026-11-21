@@ -1,6 +1,6 @@
 # Kiến trúc trên Azure (mục tiêu triển khai từ 2026-11-21)
 
-**Trạng thái: THIẾT KẾ + ADAPTER TRONG CODE (Phase 07, 2026-11-21).** Adapter Blob Storage, Service Bus, đăng nhập OIDC, chế độ worker chạy một vòng và lệnh `maintain` đã viết và kiểm thử trên máy bằng fake, bằng SDK thật với lớp vận chuyển giả, và bằng một nhà cung cấp OIDC giả trong trình duyệt; **chưa có lời gọi nào tới Azure, chưa có tài khoản Azure nào được kiểm tra, chưa có tài nguyên nào, image chưa build lần nào**. Hạ tầng đã viết bằng Terraform trong `infra/azure/` và qua `terraform validate` (Phase 08, 2026-11-21), nhưng **chưa `plan`, chưa `apply`** vì chưa ai đăng nhập Azure trên máy này. Mọi mục về hạ tầng dưới đây là kế hoạch cho đến khi `docs/PROGRESS.md` ghi PASS kèm bằng chứng thật. Quyết định: ADR-024, ADR-025 trong `docs/DECISIONS.md`.
+**Trạng thái: THIẾT KẾ + ADAPTER TRONG CODE (Phase 07, 2026-11-21).** Adapter Blob Storage, Service Bus, đăng nhập OIDC, chế độ worker chạy một vòng và lệnh `maintain` đã viết và kiểm thử trên máy bằng fake, bằng SDK thật với lớp vận chuyển giả, và bằng một nhà cung cấp OIDC giả trong trình duyệt; **ứng dụng chưa gọi Azure lần nào, chưa có tài nguyên nào, image chưa build lần nào**. Hạ tầng đã viết bằng Terraform trong `infra/azure/` và qua `terraform validate` (Phase 08, 2026-11-21), đã `plan` trên subscription thật (32 tài nguyên cho bước nền, 35 cho cấu hình đầy đủ), nhưng **chưa `apply`**. Mọi mục về hạ tầng dưới đây là kế hoạch cho đến khi `docs/PROGRESS.md` ghi PASS kèm bằng chứng thật. Quyết định: ADR-024, ADR-025 trong `docs/DECISIONS.md`.
 
 Lý do đổi: chủ dự án quyết định bỏ AWS và chỉ làm Azure (2026-11-21). Đề bài (`references/…pdf`, trang 1–2) cho chọn một trong AWS / Azure / GCP. Dòng Azure trong bảng gợi ý của đề: *App Service API; Azure Database for PostgreSQL; Blob Storage; Service Bus; Functions or Container Apps workers. Use bounded Container Apps Jobs for conversion.* Về danh tính: *Use … Entra External ID on Azure … or justify another OIDC provider. … put secrets in … Key Vault.*
 
@@ -134,45 +134,52 @@ Hệ quả cho cấu hình: phải bật optional claim `email` cho ID token tro
 - Request của trình duyệt kèm SAS có đi qua luật CORS như request thường không.
 - SAS chỉ có quyền `c` (create) có thật sự không ghi đè được blob đã tồn tại không (mã nguồn dựa vào điều này để một URL tải lên chỉ dùng được một lần).
 - Managed identity cần đúng những role nào để SAS do nó ký có quyền tạo/đọc blob và để xoá được từng phiên bản.
-- Số người dùng miễn phí của External ID (trang giá chỉ ghi "có bậc miễn phí").
 - Flexible server có dừng tạm được để tiết kiệm không và dừng được bao lâu; có đổi được private access sang public sau khi tạo không.
-- Dung lượng lưu trữ tối thiểu của flexible server (bảng chi phí dưới đây giả định 32 GiB).
+- Database PostgreSQL có thật sự được tính vào phần miễn phí của Azure for Students không (xem mục Chi phí).
 
 ## Việc chưa quyết (cần thông tin từ chủ dự án)
 
 | Việc | Vì sao cần | Chốt ở |
 | --- | --- | --- |
-| ~~Loại tài khoản Azure~~ | **Chủ dự án cho biết 2026-11-21: Azure for Students.** Chưa đọc từ tài khoản (chưa ai đăng nhập trên máy này); số dư credit chưa xem | Xác nhận bằng lệnh chỉ đọc sau `az login` |
-| Region | Dự kiến `southeastasia` (Singapore) vì gần Việt Nam; subscription sinh viên có thể bị giới hạn region | Phase 08 |
-| Quyền tạo external tenant và app registration | Thiếu quyền thì phải dùng phương án lùi ở mục 8 | Phase 08 |
-| ~~Tên miền~~ | **Đã chốt 2026-11-21: chuyển hẳn `video.uploadmdm.id.vn` sang Azure** (chủ dự án chọn; đề xuất là dùng hostname mặc định trước). Bản Azure được kiểm thử trên hostname mặc định, rồi mới đổi DNS; từ lúc đổi, bản VPS mất địa chỉ công khai và không có giai đoạn chạy song song trên tên này. Trình tự: `infra/azure/README.md` | — |
+| ~~Loại tài khoản Azure~~ | **Đã đọc từ tài khoản 2026-11-21:** một subscription tên "Azure for Students", trạng thái Enabled; người đăng nhập có role Owner. Số dư credit chưa xem (không có lệnh chỉ đọc đơn giản cho việc này; xem trong cổng Azure) | — |
+| ~~Region~~ | **Chọn 2026-11-21: `malaysiawest`** (đề xuất dùng cho `plan`; chủ dự án xác nhận trước `apply`). Policy "Allowed resource deployment regions" của subscription chỉ cho phép `malaysiawest`, `indonesiacentral`, `japaneast`, `japanwest`, `centralindia`; Singapore (`southeastasia`) không được phép. Cả năm region đều có mọi loại tài nguyên của thiết kế; `malaysiawest` gần Việt Nam nhất, có PostgreSQL 18 và SKU B1ms, giá PostgreSQL thấp hơn Japan East. Đánh đổi: region mới, có thể thiếu tính năng chỉ lộ ra lúc `apply`; phương án lùi là `japaneast`. Độ trễ từ Việt Nam chưa đo | — |
+| ~~Quyền tạo external tenant và app registration~~ | **Đã đọc 2026-11-21:** chính sách của tenant cho người dùng tạo tenant và tạo app (`allowedToCreateTenants`, `allowedToCreateApps` đều `true`). Việc tạo external tenant thật thì chưa thử | Thử ở Phase 09 || ~~Tên miền~~ | **Đã chốt 2026-11-21: chuyển hẳn `video.uploadmdm.id.vn` sang Azure** (chủ dự án chọn; đề xuất là dùng hostname mặc định trước). Bản Azure được kiểm thử trên hostname mặc định, rồi mới đổi DNS; từ lúc đổi, bản VPS mất địa chỉ công khai và không có giai đoạn chạy song song trên tên này. Trình tự: `infra/azure/README.md` | — |
 | ~~Cách cấp quyền cho Terraform và GitHub Actions~~ | **Đã chốt 2026-11-21:** Terraform dùng phiên `az login` của chủ dự án (Azure CLI bản ZIP trong `.tools\azcli`), subscription qua biến môi trường `ARM_SUBSCRIPTION_ID`. GitHub Actions sẽ dùng federated credential (OIDC), thêm ở Phase 12 | — |
 | Chứng chỉ ACM còn lại trên AWS | Miễn phí nhưng là tài nguyên thật; xoá cần chủ dự án đăng nhập AWS | Khi chủ dự án muốn |
 | Ngân sách và thời gian giữ tài nguyên | PostgreSQL và registry tính tiền theo giờ/ngày kể cả khi không dùng | Trước Phase 09 |
 
+## Tài khoản Azure đã kiểm tra (2026-11-21, chỉ đọc, sau khi chủ dự án tự chạy `az login`)
+
+- Một subscription "Azure for Students", Enabled; role của người đăng nhập trên subscription: Owner. Chưa có resource group nào.
+- Policy "Allowed resource deployment regions": `indonesiacentral`, `centralindia`, `japanwest`, `malaysiawest`, `japaneast`.
+- Các resource provider cần dùng (`Microsoft.App`, `DBforPostgreSQL`, `ServiceBus`, `Storage`, `KeyVault`, `ContainerRegistry`, `OperationalInsights`, `Network`, `ManagedIdentity`) đều **chưa đăng ký**; phải đăng ký một lần trước `apply` (lệnh ở `infra/azure/README.md`). Terraform được cấu hình để không tự đăng ký.
+- PostgreSQL flexible server ở `malaysiawest`, `indonesiacentral`, `japaneast`: có SKU `Standard_B1ms` và các bản 11–18.
+- Số subscription, số tenant, tên và e-mail của người dùng cố ý không ghi vào repo.
+
 ## Chi phí (ước tính sơ bộ, chưa phải hoá đơn)
 
-Đơn giá bán lẻ lấy từ Azure Retail Prices API (`prices.azure.com/api/retail/prices`) ngày 2026-11-21, region `southeastasia`, USD, chưa thuế. Một tháng tính 730 giờ.
+Đơn giá bán lẻ lấy từ Azure Retail Prices API (`prices.azure.com/api/retail/prices`) ngày 2026-11-21, region `malaysiawest`, USD, chưa thuế. Một tháng tính 730 giờ.
 
 | Hạng mục | Giả định | Đơn giá | USD/tháng |
 | --- | --- | --- | --- |
-| PostgreSQL flexible server B1ms | chạy liên tục | 0,026 / giờ | 18,98 |
-| Lưu trữ PostgreSQL | 32 GiB | 0,138 / GiB-tháng | 4,42 |
+| PostgreSQL flexible server B1ms | chạy liên tục | 0,0234 / giờ | 17,08 |
+| Lưu trữ PostgreSQL | 32 GiB | 0,1242 / GiB-tháng | 3,97 |
 | Container Registry Basic | 1 registry | 0,1666 / ngày | 5,07 |
 | Private DNS zone | 1 zone | 0,50 / tháng | 0,50 |
-| **Cộng phần cố định** | | | **≈ 29** |
-| Container Apps `api` | 0,5 vCPU, 1 GiB, co về 0 khi nghỉ | 0,000034 / vCPU-giây; 0,000004 / GiB-giây | theo thời gian có người dùng |
-| Job `transcode` | 1 vCPU, 2 GiB, giả định 60 giây mỗi clip | như trên | ≈ 0,0025 mỗi clip |
-| Job `maintenance` | 0,25 vCPU, 0,5 GiB, 5 phút một lần, giả định 15 giây mỗi lần | như trên | ≈ 1,4 |
+| **Cộng phần cố định** | | | **≈ 27** |
+| Container Apps `api` | 0,5 vCPU, 1 GiB, co về 0 khi nghỉ | 0,000028 / vCPU-giây; 0,000004 / GiB-giây | theo thời gian có người dùng |
+| Job `transcode` | 1 vCPU, 2 GiB, giả định 60 giây mỗi clip | như trên | ≈ 0,0022 mỗi clip |
+| Job `maintenance` | 0,25 vCPU, 0,5 GiB, 5 phút một lần, giả định 15 giây mỗi lần | như trên | ≈ 1,2 |
 | Service Bus Basic | vài nghìn thao tác | 0,05 / triệu thao tác | ≈ 0 |
-| Blob Storage Hot LRS | vài GB | 0,02 / GB-tháng | ≈ 0,1 |
-| Log Analytics | dưới 5 GB/tháng | 5 GB đầu miễn phí, sau đó 2,99 / GB | 0 |
-| Lưu lượng ra Internet | dưới 100 GB/tháng | 100 GB đầu miễn phí, sau đó 0,12 / GB | 0 |
+| Blob Storage Hot LRS | vài GB | 0,018 / GB-tháng | ≈ 0,1 |
+| Log Analytics | dưới 5 GB/tháng | 5 GB đầu miễn phí (giá sau đó ở region này chưa tra) | 0 |
+| Lưu lượng ra Internet | dưới 100 GB/tháng | 100 GB đầu miễn phí (giá sau đó ở region này chưa tra) | 0 |
+
+**Phần miễn phí của Azure for Students.** Trang `azure.microsoft.com/free/students` liệt kê cho PostgreSQL: 12 tháng, mỗi tháng 750 giờ flexible server Burstable B1MS, 32 GB lưu trữ và 32 GB sao lưu. Thiết kế dùng đúng cỡ đó (một máy chủ B1ms chạy cả tháng là tối đa 744 giờ, 32 GiB). Nếu ưu đãi áp dụng cho subscription này thì hai dòng PostgreSQL bằng 0 trong 12 tháng và phần cố định còn khoảng 5,6 USD/tháng. **Chưa xác nhận** ưu đãi được áp dụng tự động hay cần thao tác nào, và có áp dụng ở `malaysiawest` không; phải xem Cost Management sau vài ngày đầu. Ghi chú riêng: ưu đãi "Apply offer"/bậc Basic khoảng 5 USD/tháng mà cổng Azure quảng cáo là của **Azure SQL Database** (lõi SQL Server), ứng dụng này không dùng được vì mã nguồn viết cho PostgreSQL.
 
 Ba dòng Container Apps chưa trừ phần miễn phí hằng tháng (180.000 vCPU-giây, 360.000 GiB-giây, 2 triệu request); với tải demo thì nhiều khả năng nằm trọn trong phần miễn phí, nhưng điều đó **chưa đo**. Nếu giữ `api` luôn có 1 replica để tránh chờ khởi động: thêm khoảng 15,8 USD/tháng theo giá idle (trước phần miễn phí).
 
-Chưa tính và chưa biết: sao lưu PostgreSQL, Key Vault (0,03 USD / 10.000 thao tác), luật alert, thuế. Bảng giá có một meter "Container Apps Environment Management Hour" 0,10 USD/giờ mà **chưa rõ áp dụng khi nào**; phải làm rõ trước khi `apply`, vì nếu tính liên tục thì đó là khoảng 73 USD/tháng. Thời lượng 60 giây mỗi clip và 15 giây mỗi lần `maintenance` là giả định, sẽ thay bằng số đo ở Phase 11. Với 100 USD credit của Azure for Students (loại tài khoản chủ dự án cho biết; số dư thật chưa xem), phần cố định 29 USD/tháng đủ cho khoảng ba tháng chạy liên tục.
-
+Chưa tính và chưa biết: sao lưu PostgreSQL ngoài phần kèm theo, Key Vault (0,03 USD / 10.000 thao tác ở Singapore; chưa tra ở region này), luật alert, thuế. Bảng giá của `malaysiawest` có ba meter cấp environment của Container Apps, mỗi cái 0,117 USD/giờ: "Environment Management Hour", "Environment Planned Maintenance Hour", "Environment Private Endpoint". Tài liệu billing nói phí quản lý chỉ áp dụng khi có profile Dedicated hoặc khi dùng private endpoint / planned maintenance của environment; thiết kế này không dùng thứ nào trong đó. Vẫn phải xem Cost Management sau ngày đầu, vì nếu một meter chạy liên tục thì đó là khoảng 85 USD/tháng. Thời lượng 60 giây mỗi clip và 15 giây mỗi lần `maintenance` là giả định, sẽ thay bằng số đo ở Phase 11. Credit của Azure for Students là 100 USD (theo tài liệu; số dư thật chưa xem): hết credit thì subscription và mọi dịch vụ bị vô hiệu hoá.
 ## Miền lỗi
 
 Một region. PostgreSQL một máy chủ, không dự phòng theo zone: mất máy chủ là mất dịch vụ cho tới khi khôi phục từ bản sao lưu. Replica của `api` chết thì Container Apps dựng lại. Lần chạy job chết giữa chừng thì lock của message hết hạn, message được giao lại và sinh lần chạy mới; lease hết hạn được `reconcile` thu hồi, job thử lại tối đa 3 lần rồi FAILED. Service Bus, Blob Storage và Entra là dịch vụ theo region do Azure vận hành.

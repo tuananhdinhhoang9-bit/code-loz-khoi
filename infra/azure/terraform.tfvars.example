@@ -1,7 +1,8 @@
 # Sao chép thành terraform.tfvars (đã gitignore) rồi điền giá trị thật. Không đặt secret vào đây.
 # Subscription không ghi vào file: đặt biến môi trường ARM_SUBSCRIPTION_ID trước khi chạy (xem README).
 
-location = "southeastasia"
+# Phải là một region mà policy của subscription cho phép (xem README).
+location = "malaysiawest"
 
 # Tên miền riêng sẽ trỏ về Azure. Để trống nếu chỉ dùng hostname mặc định.
 # domain_name = "video.example.com"

@@ -1,6 +1,6 @@
 # Terraform cho Azure (Phase 08)
 
-**Trạng thái (2026-11-21): đã `fmt`, `init` và `validate` (azurerm 4.81.0, random 3.9.1, Terraform 1.17.2). CHƯA `plan`, CHƯA `apply`: chưa ai đăng nhập Azure trên máy này, nên chưa có tài nguyên nào và chưa có dòng nào ở đây được Azure xác nhận.** Thiết kế và lý do: `docs/AZURE_ARCHITECTURE.md`, ADR-024 đến ADR-026.
+**Trạng thái (2026-11-21): đã `fmt`, `init`, `validate` và `plan` trên subscription Azure for Students của chủ dự án (azurerm 4.81.0, random 3.9.1, Terraform 1.17.2): `Plan: 32 to add` với `deploy_apps = false`, `Plan: 35 to add` với `deploy_apps = true`. CHƯA `apply`: chưa có tài nguyên nào. `plan` không gọi tới từng dịch vụ, nên hạn mức và giới hạn của gói sinh viên chỉ lộ ra khi `apply`.** Thiết kế và lý do: `docs/AZURE_ARCHITECTURE.md`, ADR-024 đến ADR-026.
 
 ## Tạo ra những gì (32 khối `resource`)
 
@@ -12,7 +12,7 @@
 | `identity.tf` | Hai managed identity (`api`, `worker`) và các role assignment của chúng |
 | `apps.tf` | Container Registry, Log Analytics, Container Apps environment trong VNet; app `api`; job `transcode` (chạy khi có message) và job `maintenance` (theo lịch) |
 
-Đếm theo file (không phải kết quả `plan`): với `deploy_apps = false` là 32 tài nguyên, với `true` là 35.
+Theo `plan`: với `deploy_apps = false` là 32 tài nguyên, với `true` là 35 (một số khối tạo ra hai role assignment, ba khối chỉ có khi `deploy_apps = true`).
 
 Không nằm trong Terraform này, phải làm tay và ghi lại: external tenant của Microsoft Entra External ID và app registration (thuộc tenant khác, cần quyền Tenant Creator); bản ghi DNS của tên miền (DNS nằm ngoài Azure); gắn tên miền riêng và chứng chỉ vào app (làm lúc chuyển DNS); quyền cho GitHub Actions (Phase 12); dashboard và alert (Phase 11).
 
@@ -27,10 +27,23 @@ Mọi lệnh chạy từ thư mục gốc của repo, trong PowerShell. Azure CL
 # 2. Chọn subscription cho Terraform bằng biến môi trường, không ghi ID vào file nào.
 $env:ARM_SUBSCRIPTION_ID = & .\.tools\azcli\bin\az.cmd account show --query id -o tsv
 
-# 3. Kiểm tra chỉ đọc trước khi plan: loại subscription, region được phép, nhà cung cấp tài nguyên đã đăng ký.
-& .\.tools\azcli\bin\az.cmd account show --query "{name:name, state:state, offer:subscriptionPolicies.quotaId}" -o table
-& .\.tools\azcli\bin\az.cmd policy assignment list --query "[].{name:displayName, locations:parameters.listOfAllowedLocations.value}" -o json
-& .\.tools\azcli\bin\az.cmd provider list --query "[?registrationState=='Registered'].namespace" -o tsv
+# 3. Kiểm tra chỉ đọc trước khi plan: tên subscription, region được phép, resource provider đã đăng ký.
+#    Câu --query có dấu ngoặc phải gọi thẳng python của Azure CLI: az.cmd đi qua cmd.exe và làm hỏng dấu ngoặc.
+function Invoke-Az { & .\.tools\azcli\python.exe -IBm azure.cli @args }
+Invoke-Az account show --query name -o tsv
+Invoke-Az policy assignment list --query '[].{name:displayName, locations:parameters.listOfAllowedLocations.value}' -o json
+Invoke-Az provider list --query '[].{ns:namespace, state:registrationState}' -o table
+
+# Terraform gọi lệnh `az` qua PATH:
+$env:PATH = "$PWD\.tools\azcli\bin;" + $env:PATH
+```
+
+Kết quả đọc ngày 2026-11-21: subscription "Azure for Students"; region được phép là `malaysiawest`, `indonesiacentral`, `japaneast`, `japanwest`, `centralindia` (Singapore không được phép); các resource provider cần dùng đều chưa đăng ký. `location` mặc định là `malaysiawest`; phương án lùi là `japaneast`.
+
+Trước lần `apply` đầu tiên phải đăng ký resource provider một lần (miễn phí, nhưng là thay đổi trên subscription nên chỉ chạy khi chủ dự án đồng ý):
+
+```powershell
+foreach ($ns in "Microsoft.App","Microsoft.DBforPostgreSQL","Microsoft.ServiceBus","Microsoft.Storage","Microsoft.KeyVault","Microsoft.ContainerRegistry","Microsoft.OperationalInsights","Microsoft.Network","Microsoft.ManagedIdentity") { & .\.tools\azcli\bin\az.cmd provider register --namespace $ns }
 ```
 
 ```powershell
@@ -64,14 +77,13 @@ Chứng chỉ miễn phí của Container Apps chỉ cấp được khi tên mi�
 
 ## Chi phí và dọn dẹp
 
-Phần cố định ước tính khoảng 29 USD/tháng (PostgreSQL B1ms + 32 GiB, registry Basic, private DNS zone); bảng và nguồn giá ở `docs/AZURE_ARCHITECTURE.md`. Tài khoản là Azure for Students (100 USD credit theo tài liệu; số dư thật chưa xem). Ngân sách cảnh báo không phải trần chi tiêu.
+Phần cố định ước tính khoảng 27 USD/tháng ở `malaysiawest` (PostgreSQL B1ms + 32 GiB, registry Basic, private DNS zone); bảng và nguồn giá ở `docs/AZURE_ARCHITECTURE.md`. Gói Azure for Students liệt kê 750 giờ PostgreSQL B1ms và 32 GB mỗi tháng trong 12 tháng là miễn phí; nếu áp dụng cho subscription này thì phần cố định còn khoảng 5,6 USD/tháng, nhưng điều đó chưa xác nhận. Credit 100 USD theo tài liệu; số dư thật chưa xem. Hết credit thì mọi dịch vụ bị vô hiệu hoá. Ngân sách cảnh báo không phải trần chi tiêu.
 
 Dọn dẹp sau demo: `terraform destroy` xoá mọi thứ ở đây, **kể cả database và toàn bộ video**. Key Vault đã xoá vẫn được Azure giữ 7 ngày trừ khi đặt `allow_destroy_data = true` trước khi destroy. Sau đó kiểm tra resource group đã trống và xem trang Cost Management.
 
 ## Chưa kiểm chứng (phải xem lại ở lần `plan`/`apply` đầu tiên)
 
-- Subscription sinh viên có cho tạo từng loại tài nguyên này ở region đã chọn không (PostgreSQL flexible server hay bị giới hạn theo region).
-- PostgreSQL 18 có tạo được trong region đó không (`validate` chỉ kiểm tra cú pháp).
+- Subscription sinh viên có thật sự cho tạo từng tài nguyên này ở `malaysiawest` không. Đã đọc được: region nằm trong danh sách cho phép, mọi loại tài nguyên có ở region, PostgreSQL có B1ms và bản 18. Hạn mức và giới hạn riêng của gói sinh viên thì chưa biết.
 - Role của identity: `Storage Blob Data Owner` ở mức container có đủ để SAS do `api` ký hoạt động và để xoá phiên bản; `Azure Service Bus Data Owner` ở mức queue có đúng là thứ KEDA cần để đếm message (tài liệu KEDA không nêu role).
 - Luật scale bằng managed identity cho **job** (Terraform có trường `identity_id`; lệnh CLI tương ứng còn ghi "Preview").
 - Bậc Basic của Service Bus có dead-letter queue và xác thực Entra (tài liệu đã đọc chỉ ghi "queues only").

@@ -10,9 +10,9 @@ variable "project" {
 }
 
 variable "location" {
-  description = "Region của Azure. Subscription sinh viên có thể chỉ cho phép một số region: kiểm tra trước khi plan."
+  description = "Region của Azure. Subscription Azure for Students của dự án chỉ cho phép: malaysiawest, indonesiacentral, japaneast, japanwest, centralindia (đọc từ policy ngày 2026-11-21)."
   type        = string
-  default     = "southeastasia"
+  default     = "malaysiawest"
 }
 
 variable "domain_name" {

@@ -2,7 +2,7 @@
 
 Read `AGENTS.md` + only the referenced docs. Do not build future phases early. Each phase ends with test commands, result (PASS/FAIL/BLOCKED), updated PROGRESS and a focused Git commit.
 
-**Deployment target changed on 2026-11-21:** phases 07–13 now target **Azure** (ADR-024, `docs/AZURE_ARCHITECTURE.md`). The AWS phases (2026-11-20), the Windows VPS phases (2026-11-17) and the GCP phases are archived at the bottom of this file. Phases 00–06 are unchanged. **Azure phase 07 is done (code and local tests only, see `docs/PROGRESS.md`). Phase 08 is partly done: `infra/azure/` is written and validated; the account check and `terraform plan` are BLOCKED until the owner signs in to Azure. Phases 09–13 have not been started.**
+**Deployment target changed on 2026-11-21:** phases 07–13 now target **Azure** (ADR-024, `docs/AZURE_ARCHITECTURE.md`). The AWS phases (2026-11-20), the Windows VPS phases (2026-11-17) and the GCP phases are archived at the bottom of this file. Phases 00–06 are unchanged. **Azure phase 07 is done (code and local tests only, see `docs/PROGRESS.md`). Phase 08 is done: account checked read-only, `infra/azure/` validated and planned (32 resources for the foundation step, 35 in full), nothing applied. Phases 09–13 have not been started; phase 09 needs the owner's approval for every paid step.**
 
 | Phase | Work | Acceptance |
 | --- | --- | --- |

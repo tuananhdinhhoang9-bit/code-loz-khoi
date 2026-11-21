@@ -1,6 +1,6 @@
 # Terraform cho Azure (Phase 08)
 
-**Trạng thái (2026-11-21): bước nền ĐÃ `apply` trên subscription Azure for Students của chủ dự án, region `malaysiawest`: 32 tài nguyên, cộng 3 tài nguyên cho GitHub Actions (`github.tf`). App `api` và hai job CHƯA được tạo vì chưa có image trong registry.** Từ lúc apply, PostgreSQL, registry, load balancer và địa chỉ IP của environment tính tiền theo giờ. Công cụ: azurerm 4.81.0, random 3.9.1, Terraform 1.17.2. Thiết kế và lý do: `docs/AZURE_ARCHITECTURE.md`, ADR-024 đến ADR-028.
+**Trạng thái (2026-11-21): ĐÃ `apply` toàn bộ trên subscription Azure for Students của chủ dự án, region `malaysiawest`: 38 tài nguyên (32 nền, 3 cho GitHub Actions, app `api` và hai job). Trang trả lời tại hostname mặc định của Azure với `/health` = `database: ok`. Đăng nhập đang dùng tài khoản nội bộ (`auth_provider = "local"`), chưa có external tenant của Entra; chưa có tài khoản nào nên luồng video chưa được thử trên Azure.** Mọi thứ đang tính tiền theo giờ (khoảng 1,6 USD/ngày, cộng khoảng 0,5 USD/ngày khi giữ `api_min_replicas = 1`). Công cụ: azurerm 4.81.0, random 3.9.1, Terraform 1.17.2. Thiết kế và lý do: `docs/AZURE_ARCHITECTURE.md`, ADR-024 đến ADR-028; bằng chứng: `docs/EVIDENCE.md`.
 
 ## Tạo ra những gì (35 khối `resource`)
 

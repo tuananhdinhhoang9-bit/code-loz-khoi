@@ -1,0 +1,41 @@
+# Sao chép thành terraform.tfvars (đã gitignore) rồi điền giá trị thật. Không đặt secret vào đây.
+# Subscription không ghi vào file: đặt biến môi trường ARM_SUBSCRIPTION_ID trước khi chạy (xem README).
+
+# Phải là một region mà policy của subscription cho phép (xem README).
+location = "malaysiawest"
+
+# Tên miền riêng sẽ trỏ về Azure. Để trống nếu chỉ dùng hostname mặc định.
+# domain_name = "video.example.com"
+
+# Bước 1: để false, apply, rồi build và đẩy hai image lên registry với đúng image_tag.
+# Bước 2: đặt true và apply lần nữa để tạo app api và hai job.
+# deploy_apps = false
+# image_tag   = "initial"
+
+# Kho GitHub được phép đẩy image lên registry qua OIDC (chỉ nhánh main). Bỏ trống nếu chưa dùng.
+# github_subject là chuỗi `sub` đầy đủ mà GitHub phát; hiện có kèm ID số của chủ kho và của kho.
+# github_repository = "owner/repository"
+# github_subject    = "repo:owner@<owner id>/repository@<repository id>:ref:refs/heads/main"
+
+# Đăng nhập. oidc cần external tenant của Microsoft Entra External ID; local là phương án lùi.
+# auth_provider      = "oidc"
+# oidc_issuer        = ""
+# oidc_client_id     = ""
+# oidc_jwks_url      = ""
+# oidc_authorize_url = ""
+# oidc_token_url     = ""
+# oidc_logout_url    = ""
+# oidc_email_claim   = "email"
+
+# Kích thước (ảnh hưởng chi phí)
+# db_sku           = "B_Standard_B1ms"
+# db_version       = "18"
+# api_min_replicas = 0
+# worker_cpu       = 1
+# worker_memory    = "2Gi"
+
+# Chỉ bật khi dọn dẹp sau demo, ngay trước terraform destroy
+# allow_destroy_data = true
+
+# Nơi nhận email khi cảnh báo nổ (Phase 11). Để trống thì cảnh báo chỉ hiện trong Azure Portal.
+# alert_email = "you@example.com"

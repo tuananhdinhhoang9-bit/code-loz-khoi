@@ -1,0 +1,143 @@
+# Chạy test ở mọi lần push và pull request; trên nhánh main thì build hai image, đẩy lên Azure Container Registry
+# rồi đưa image đó lên app và hai job (deploy/azure/deploy.sh). Quay lại bản cũ: workflow `rollback`.
+# Không có mật khẩu hay khoá nào: job `images` đổi token OIDC của GitHub lấy token Azure (infra/azure/github.tf).
+# Secret của kho (Settings > Secrets and variables > Actions), đều là ID chứ không phải mật khẩu:
+#   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID, AZURE_REGISTRY (tên registry, không kèm .azurecr.io)
+# Chưa đặt secret thì job `images` và `deploy` chỉ ghi một thông báo và kết thúc.
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: video_portal
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: video_portal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U video_portal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Mật khẩu này chỉ thuộc về container PostgreSQL tạm của lần chạy CI, không phải của hệ thống thật.
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: video_portal
+      POSTGRES_USER: video_portal
+      POSTGRES_PASSWORD: ci-only-password
+      RUN_DB_TESTS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Run tests
+        run: |
+          set -o pipefail
+          python -m pytest -q -rfE --tb=line 2>&1 | tee pytest.log
+      # Log của job chỉ xem được khi đăng nhập; chú thích lỗi thì ai cũng xem được trên trang của lần chạy.
+      - name: Report failing tests as annotations
+        if: failure()
+        run: |
+          grep -E '^(FAILED|ERROR) ' pytest.log | head -n 9 | while read -r line; do echo "::error::${line:0:900}"; done
+          tail -n 1 pytest.log | sed 's/^/::notice::/'
+
+  images:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      REGISTRY: ${{ secrets.AZURE_REGISTRY }}
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - name: Check that the Azure secrets are set
+        id: gate
+        env:
+          CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          if [ -n "$CLIENT_ID" ] && [ -n "$REGISTRY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Azure secrets are not set; images were not built"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.ready == 'true'
+      - uses: azure/login@v2
+        if: steps.gate.outputs.ready == 'true'
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Build and push api and worker
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          az acr login --name "$REGISTRY"
+          for target in api worker; do
+            image="$REGISTRY.azurecr.io/video-portal-$target:$IMAGE_TAG"
+            # deploy/azure/Dockerfile.dockerignore giới hạn build context ở requirements.txt, app/ và worker/.
+            docker build -f deploy/azure/Dockerfile --target "$target" -t "$image" .
+            docker push "$image"
+          done
+          echo "Pushed image tag: $IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: images
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    # Không chạy hai lần triển khai cùng lúc (kể cả với workflow rollback); lần sau chờ lần trước xong.
+    concurrency:
+      group: deploy-azure
+      cancel-in-progress: false
+    env:
+      REGISTRY: ${{ secrets.AZURE_REGISTRY }}
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - name: Check that the Azure secrets are set
+        id: gate
+        env:
+          CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          if [ -n "$CLIENT_ID" ] && [ -n "$REGISTRY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Azure secrets are not set; nothing was deployed"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.ready == 'true'
+      - uses: azure/login@v2
+        if: steps.gate.outputs.ready == 'true'
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Update the api app and the two jobs, wait until healthy
+        if: steps.gate.outputs.ready == 'true'
+        run: bash deploy/azure/deploy.sh "$IMAGE_TAG"

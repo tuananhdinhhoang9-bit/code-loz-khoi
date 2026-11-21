@@ -1,0 +1,4 @@
+**
+!worker/
+!worker/*.py
+!worker/Dockerfile

@@ -1,0 +1,11 @@
+# Sao chep thanh terraform.tfvars (da gitignore) roi dien gia tri that. Khong dat secret vao day.
+project_id = "your-gcp-project-id"
+region     = "asia-southeast1"
+
+# firebase_project_id  = ""
+# firebase_web_api_key = ""
+# cors_origins         = ["https://video-api-xxxxx.a.run.app"]
+# app_image            = "asia-southeast1-docker.pkg.dev/your-gcp-project-id/video-portal/app:TAG"
+# worker_image         = "asia-southeast1-docker.pkg.dev/your-gcp-project-id/video-portal/worker:TAG"
+# scheduler_paused     = true
+# deletion_protection  = true

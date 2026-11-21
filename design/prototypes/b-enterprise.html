@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phương án B — Minimal Enterprise Dashboard</title>
+<!-- Prototype độc lập: dữ liệu mẫu tĩnh, không gọi API. Font tải từ Google chỉ để xem thử; bản thật sẽ tự lưu font trong app/static. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root {
+  --bg: #f2f4f3; --surface: #fff; --ink: #1b2422; --muted: #5f6b68; --line: #d3d9d7; --line-soft: #e6eae9;
+  --ready: #1f6b52; --run: #2a5f9e; --wait: #8a6a1c; --fail: #a8382c;
+  --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.55 var(--font); font-variant-numeric: tabular-nums; }
+h1, h2, p { margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+a, .link { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: #9aa5a2; background: none; border: 0; padding: 0; cursor: pointer; }
+a:hover, .link:hover { text-decoration-color: var(--ink); }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.shell { display: grid; grid-template-columns: 184px minmax(0, 1fr); max-width: 1240px; margin: 0 auto; min-height: 100vh; }
+
+/* Thanh bên: chỉ chữ, không icon, không khung */
+.rail { padding: 28px 0 24px 24px; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; }
+.rail .brand { font-weight: 600; font-size: 15px; margin-bottom: 26px; }
+.rail p { color: var(--muted); font-size: 12px; margin: 18px 0 4px; }
+.rail button { display: block; width: 100%; text-align: left; padding: 5px 0 5px 12px; border: 0; border-left: 2px solid transparent; background: none; cursor: pointer; color: #3f4a47; }
+.rail button:hover { color: var(--ink); }
+.rail button.on { border-left-color: var(--ink); color: var(--ink); font-weight: 600; }
+.rail .who { margin-top: auto; font-size: 13px; color: var(--muted); }
+.rail .who b { display: block; color: var(--ink); font-weight: 500; }
+
+main { background: var(--surface); border-left: 1px solid var(--line); border-right: 1px solid var(--line); padding: 28px 36px 56px; }
+.head { display: flex; align-items: flex-end; gap: 16px; padding-bottom: 18px; border-bottom: 1px solid var(--ink); margin-bottom: 24px; }
+.head h1 { font-size: 24px; font-weight: 500; letter-spacing: -.01em; line-height: 1.2; }
+.head p { color: var(--muted); margin-top: 4px; max-width: 62ch; }
+.head .btn { margin-left: auto; }
+.btn { padding: 7px 16px; border: 1px solid var(--ink); border-radius: 3px; background: var(--ink); color: #fff; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.btn.plain { background: var(--surface); color: var(--ink); }
+h2 { font-size: 14px; font-weight: 600; margin: 30px 0 10px; }
+h2:first-child { margin-top: 0; }
+h2 span { font-weight: 400; color: var(--muted); margin-left: 6px; }
+
+/* Tình trạng: một thanh tỉ lệ thay cho các ô số liệu */
+.ratio { display: flex; height: 10px; border-radius: 2px; overflow: hidden; background: var(--line-soft); }
+.ratio i { display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 28px; margin-top: 10px; }
+.legend span { display: flex; align-items: baseline; gap: 7px; color: var(--muted); }
+.legend b { color: var(--ink); font-weight: 600; font-size: 16px; }
+.dot { width: 8px; height: 8px; border-radius: 1px; display: inline-block; flex: none; }
+.ready { background: var(--ready); } .run { background: var(--run); } .wait { background: var(--wait); } .fail { background: var(--fail); }
+
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+td.num, th.num { text-align: right; }
+td.acts { text-align: right; white-space: nowrap; padding-right: 0; }
+td.acts .link { margin-left: 14px; }
+.state { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+tr.open td { background: #f7f9f8; border-bottom-color: var(--line); }
+tr.more td { background: #f7f9f8; padding: 4px 0 18px; }
+.more-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 28px; padding: 0 12px; }
+dl { display: grid; grid-template-columns: 110px 1fr; gap: 3px 12px; margin: 0; }
+dt { color: var(--muted); } dd { margin: 0; }
+.meter { display: inline-block; width: 120px; height: 4px; background: var(--line-soft); vertical-align: middle; margin-right: 8px; }
+.meter i { display: block; height: 100%; background: var(--run); }
+.note { color: var(--muted); }
+.log { list-style: none; margin: 0; padding: 0; }
+.log li { display: grid; grid-template-columns: 96px 1fr; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
+.log time { color: var(--muted); }
+
+/* Bộ lọc và biểu mẫu */
+.filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.field { padding: 6px 10px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); min-width: 0; }
+.filters .field:first-child { flex: 1 1 220px; }
+label { display: block; font-weight: 500; margin: 18px 0 5px; }
+.inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.narrow { max-width: 580px; }
+.narrow .field { width: 100%; }
+.drop { border: 1px dashed #9aa5a2; border-radius: 3px; padding: 22px 16px; background: #f7f9f8; }
+.drop b { font-weight: 500; }
+.limits { margin-top: 10px; color: var(--muted); }
+.limits td { padding: 4px 12px 4px 0; border: 0; }
+.limits td:first-child { width: 110px; }
+
+/* Tiến trình: một đường thẳng năm mốc */
+.track { display: grid; grid-template-columns: repeat(5, 1fr); margin: 14px 0 6px; padding: 0; list-style: none; }
+.track li { position: relative; padding-top: 16px; color: var(--muted); font-size: 13px; }
+.track li::before { content: ""; position: absolute; left: 0; right: 0; top: 4px; height: 2px; background: var(--line); }
+.track li::after { content: ""; position: absolute; left: 0; top: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--line); }
+.track li.done { color: var(--ink); } .track li.done::before { background: var(--ink); } .track li.done::after { background: var(--ink); border-color: var(--ink); }
+.track li.now { color: var(--ink); font-weight: 600; } .track li.now::after { border-color: var(--run); }
+.track li.now::before { background: linear-gradient(90deg, var(--run) 64%, var(--line) 0); }
+
+@media (max-width: 860px) {
+  .shell { display: block; }
+  .rail { position: static; height: auto; padding: 14px 16px 10px; flex-direction: row; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+  .rail .brand { margin: 0 12px 0 0; } .rail p, .rail .who { display: none; }
+  .rail button { width: auto; padding: 4px 8px; border-left: 0; border-bottom: 2px solid transparent; }
+  .rail button.on { border-bottom-color: var(--ink); }
+  main { padding: 20px 16px 40px; border: 0; }
+  .head { flex-wrap: wrap; align-items: flex-start; } .head .btn { margin-left: 0; }
+  .hide-s { display: none; } .more-grid { grid-template-columns: 1fr; gap: 14px; }
+  td { padding-right: 8px; } td:first-child { min-width: 118px; } .meter { width: 52px; }
+  .track li { font-size: 12px; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" aria-label="Điều hướng">
+    <div class="brand">Video Portal</div>
+    <button class="on" data-go="home">Tổng quan</button>
+    <button data-go="library">Thư viện</button>
+    <button data-go="upload">Tải video lên</button>
+    <p>Tài khoản</p>
+    <button>Tài khoản của tôi</button>
+    <button>Người dùng</button>
+    <p>Trợ giúp</p>
+    <button>Hướng dẫn</button>
+    <div class="who"><b>ban@example.com</b>Quản trị viên<br><button class="link" style="padding:0;border:0;width:auto;margin-top:6px">Đăng xuất</button></div>
+  </nav>
+
+  <main>
+    <!-- TỔNG QUAN -->
+    <section data-view="home">
+      <div class="head"><div><h1>Tổng quan</h1><p>Tình trạng 11 video bạn sở hữu hoặc được chia sẻ. Cập nhật lúc 14:32:10.</p></div><button class="btn" data-go="upload">Tải video lên</button></div>
+
+      <h2>Tình trạng thư viện</h2>
+      <div class="ratio" role="img" aria-label="8 sẵn sàng, 1 đang xử lý, 1 xếp hàng, 1 thất bại">
+        <i class="ready" style="width:72.700%"></i><i class="run" style="width:9.100%"></i><i class="wait" style="width:9.100%"></i><i class="fail" style="width:9.100%"></i>
+      </div>
+      <div class="legend">
+        <span><i class="dot ready"></i><b>8</b>sẵn sàng phát</span><span><i class="dot run"></i><b>1</b>đang xử lý</span>
+        <span><i class="dot wait"></i><b>1</b>xếp hàng</span><span><i class="dot fail"></i><b>1</b>thất bại</span>
+      </div>
+
+      <h2>Đang chạy <span>máy chủ xử lý từng video một</span></h2>
+      <table>
+        <thead><tr><th>Video</th><th>Bước</th><th>Tiến độ</th><th class="num hide-s">Bắt đầu</th></tr></thead>
+        <tbody>
+          <tr><td>Demo luồng tải lên</td><td><span class="state"><i class="dot run"></i>Đang chuyển mã</span></td><td><span class="meter"><i style="width:64%"></i></span>64%</td><td class="num hide-s">14:31:52</td></tr>
+          <tr><td>Buổi họp nhóm tuần 3</td><td><span class="state"><i class="dot wait"></i>Xếp hàng</span></td><td class="note">Chờ tới lượt</td><td class="num hide-s">14:32:04</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Cần chú ý</h2>
+      <table>
+        <tbody>
+          <tr><td>Ghi hình màn hình dài</td><td><span class="state"><i class="dot fail"></i>Thất bại</span></td><td>Video dài hơn 30 giây. Hãy tải một file khác.</td><td class="acts"><button class="link">Xoá</button></td></tr>
+        </tbody>
+      </table>
+
+      <h2>Mới tải lên</h2>
+      <ul class="log">
+        <li><time>20/11 14:32</time><span>Buổi họp nhóm tuần 3, 18,4 MB, của bạn</span></li>
+        <li><time>20/11 14:31</time><span>Demo luồng tải lên, 24,1 MB, của bạn</span></li>
+        <li><time>20/11 14:02</time><span>Giới thiệu nhóm, 19,9 MB, của bạn</span></li>
+        <li><time>19/11 20:15</time><span>Báo cáo giữa kỳ, 12,6 MB, chia sẻ bởi linh@example.com</span></li>
+      </ul>
+    </section>
+
+    <!-- THƯ VIỆN -->
+    <section data-view="library" hidden>
+      <div class="head"><div><h1>Thư viện</h1><p>Video của bạn và video người khác chia sẻ cho bạn.</p></div><button class="btn" data-go="upload">Tải video lên</button></div>
+      <div class="filters">
+        <input class="field" placeholder="Tìm theo tên video" aria-label="Tìm theo tên">
+        <select class="field" aria-label="Trạng thái"><option>Mọi trạng thái</option><option>Sẵn sàng</option><option>Đang xử lý</option><option>Thất bại</option></select>
+        <select class="field" aria-label="Chủ sở hữu"><option>Của tôi và được chia sẻ</option><option>Chỉ của tôi</option></select>
+      </div>
+      <table>
+        <thead><tr><th>Tên video</th><th>Trạng thái</th><th class="hide-s">Chủ sở hữu</th><th class="num hide-s">Thời lượng</th><th class="num hide-s">File gốc</th><th class="num hide-s">Tải lên</th><th></th></tr></thead>
+        <tbody>
+          <tr class="open"><td><b>Giới thiệu nhóm</b></td><td><span class="state"><i class="dot ready"></i>Sẵn sàng</span></td><td class="hide-s">Bạn</td><td class="num hide-s">0:28</td><td class="num hide-s">19,9 MB</td><td class="num hide-s">20/11 14:02</td><td class="acts"><button class="link">Xem</button><button class="link">Đóng</button></td></tr>
+          <tr class="more"><td colspan="7"><div class="more-grid">
+            <dl><dt>Đầu ra</dt><dd>MP4 H.264, 854×480, có âm thanh</dd><dt>Ảnh thu nhỏ</dt><dd>JPG, đã kiểm tra</dd><dt>Tải lên</dt><dd>20/11/2026, 14:02, file gốc 19,9 MB</dd><dt>Liên kết phát</dt><dd>Cấp lại mỗi 2 phút</dd></dl>
+            <div><label for="v" style="margin-top:0">Chia sẻ với email</label>
+              <div class="inline"><input class="field" id="v" placeholder="nguoixem@example.com" style="flex:1 1 200px"><button class="btn plain">Cấp quyền xem</button><button class="link">Thu hồi quyền</button></div>
+              <div class="inline" style="margin-top:14px"><button class="link" style="color:var(--fail)">Xoá video này</button></div></div>
+          </div></td></tr>
+          <tr><td>Demo luồng tải lên</td><td><span class="state"><i class="dot run"></i>Đang xử lý 64%</span></td><td class="hide-s">Bạn</td><td class="num hide-s">–</td><td class="num hide-s">24,1 MB</td><td class="num hide-s">20/11 14:31</td><td class="acts"><button class="link">Chi tiết</button></td></tr>
+          <tr><td>Buổi họp nhóm tuần 3</td><td><span class="state"><i class="dot wait"></i>Xếp hàng</span></td><td class="hide-s">Bạn</td><td class="num hide-s">–</td><td class="num hide-s">18,4 MB</td><td class="num hide-s">20/11 14:32</td><td class="acts"><button class="link">Chi tiết</button></td></tr>
+          <tr><td>Kiến trúc hệ thống</td><td><span class="state"><i class="dot ready"></i>Sẵn sàng</span></td><td class="hide-s">Bạn</td><td class="num hide-s">0:30</td><td class="num hide-s">31,0 MB</td><td class="num hide-s">20/11 11:47</td><td class="acts"><button class="link">Xem</button><button class="link">Chi tiết</button></td></tr>
+          <tr><td>Báo cáo giữa kỳ</td><td><span class="state"><i class="dot ready"></i>Sẵn sàng</span></td><td class="hide-s">linh@example.com</td><td class="num hide-s">0:21</td><td class="num hide-s">12,6 MB</td><td class="num hide-s">19/11 20:15</td><td class="acts"><button class="link">Xem</button></td></tr>
+          <tr><td>Ghi hình màn hình dài</td><td><span class="state"><i class="dot fail"></i>Thất bại</span></td><td class="hide-s">Bạn</td><td class="num hide-s">–</td><td class="num hide-s">47,8 MB</td><td class="num hide-s">19/11 16:40</td><td class="acts"><button class="link">Chi tiết</button></td></tr>
+          <tr><td>Clip thử nghiệm 07</td><td><span class="state"><i class="dot ready"></i>Sẵn sàng</span></td><td class="hide-s">Bạn</td><td class="num hide-s">0:03</td><td class="num hide-s">0,1 MB</td><td class="num hide-s">19/11 09:12</td><td class="acts"><button class="link">Xem</button><button class="link">Chi tiết</button></td></tr>
+        </tbody>
+      </table>
+      <p class="note" style="margin-top:12px">Hiển thị 7 trong 11 video.</p>
+    </section>
+
+    <!-- TẢI LÊN -->
+    <section data-view="upload" hidden>
+      <div class="head"><div><h1>Tải video lên</h1><p>File được lưu riêng tư. Chỉ bạn và người bạn cấp quyền xem được kết quả.</p></div></div>
+      <div class="narrow">
+        <label for="t" style="margin-top:0">Tên video</label><input class="field" id="t" value="Demo luồng tải lên">
+        <label>File video</label>
+        <div class="drop"><b>demo-luong-tai-len.mp4</b>, 24,1 MB<div class="inline"><button class="btn plain">Chọn file khác</button><span class="note">hoặc kéo file vào khung này</span></div></div>
+        <table class="limits"><tbody><tr><td>Định dạng</td><td>MP4, WebM hoặc MOV</td></tr><tr><td>Dung lượng</td><td>Tối đa 50 MB</td></tr><tr><td>Thời lượng</td><td>Tối đa 30 giây</td></tr></tbody></table>
+        <div class="inline" style="margin-top:18px"><button class="btn">Tải video lên</button><button class="link">Huỷ</button></div>
+
+        <h2>Tiến trình <span>Demo luồng tải lên</span></h2>
+        <ol class="track"><li class="done">Tạo lượt tải</li><li class="done">Gửi file</li><li class="done">Xếp hàng</li><li class="now">Xử lý</li><li>Sẵn sàng</li></ol>
+        <p class="note">Đang chuyển mã, 64%. Bạn có thể rời trang; video sẽ xuất hiện trong Thư viện khi xong.</p>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+function show(view) {
+  document.querySelectorAll("[data-view]").forEach((s) => { s.hidden = s.dataset.view !== view; });
+  document.querySelectorAll(".rail [data-go]").forEach((b) => b.classList.toggle("on", b.dataset.go === view));
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => show(b.dataset.go)));
+function fromHash() { if (["home", "library", "upload"].includes(location.hash.slice(1))) show(location.hash.slice(1)); }
+window.addEventListener("hashchange", fromHash);
+fromHash();
+</script>
+</body>
+</html>

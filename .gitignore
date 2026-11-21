@@ -37,3 +37,6 @@ id_ed25519
 
 # Cấu hình xem thử cục bộ của Claude Code
 .claude/
+
+# File bàn giao cho chủ dự án (báo cáo có tên tài khoản, file nén mã nguồn): không commit.
+handover/

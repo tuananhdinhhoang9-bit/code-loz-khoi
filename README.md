@@ -2,21 +2,24 @@
 
 Ứng dụng Flask/Jinja + PostgreSQL + FFmpeg cho đề tài số 10 “Video Upload and Processing Portal” (`references/10_video_upload_and_processing_portal.pdf`). Trạng thái chi tiết và bằng chứng kiểm thử: `docs/PROGRESS.md`.
 
-## Hai bản triển khai, hai nhánh
+## Bản chính: Azure (đang chạy từ 2026-11-21)
 
-Mã ứng dụng (`app/`, `worker/`, `tests/`) giống nhau ở mọi nhánh; ứng dụng chọn nơi chạy bằng cấu hình (`STORAGE_BACKEND`, `QUEUE_BACKEND`, `AUTH_PROVIDER`). Mỗi nhánh dưới đây chỉ giữ tài liệu và công cụ triển khai của riêng nó, kèm README hướng dẫn.
+Kho chỉ còn nhánh `main`. Mỗi lần push lên `main`, GitHub Actions chạy test, build image và tự triển khai lên Azure; quay lại bản cũ bằng workflow `rollback`.
 
-| Nhánh | Dành cho | Database, lưu trữ, hàng đợi, đăng nhập | Trạng thái (2026-11-21) |
-| --- | --- | --- | --- |
-| [`vps`](../../tree/vps) | Một máy Windows Server | PostgreSQL trên máy, thư mục riêng tư, hàng đợi trong PostgreSQL, tài khoản nội bộ | Đang chạy thật tại `https://video.uploadmdm.id.vn` |
-| [`aws`](../../tree/aws) | AWS — **đã bỏ, nhánh đóng băng** (2026-11-21) | RDS PostgreSQL, S3, SQS, Cognito, ECS Fargate | Chỉ có mã và Terraform, chưa từng triển khai (mới có một chứng chỉ ACM). Giữ để tham khảo |
-| `main` | Phát triển; bản cloud tiếp theo là **Azure** | Thiết kế Azure ở `docs/AZURE_ARCHITECTURE.md` | Adapter Azure đã có trong mã và qua test trên máy; chưa có tài nguyên Azure nào |
+| Mục | Ở đâu |
+| --- | --- |
+| Trang đang chạy | `https://videoportal-api.bravecoast-ef9b0b40.malaysiawest.azurecontainerapps.io` (tên miền riêng: xem `infra/azure/README.md`) |
+| Kiến trúc thực tế, luồng mạng, ranh giới bảo mật | `docs/AZURE_ARCHITECTURE.md` |
+| Báo cáo thiết kế, kịch bản demo | `docs/DESIGN_REPORT.md`, `docs/DEMO_SCRIPT.md` |
+| Bằng chứng kiểm thử trên Azure | `docs/EVIDENCE.md` |
+| Hạ tầng (Terraform), CI/CD, rollback | `infra/azure/`, `.github/workflows/`, `deploy/azure/` |
+| Giám sát, cảnh báo, chi phí | `docs/AZURE_MONITORING_COST.md` |
+| Dọn dẹp tài nguyên | `docs/CLEANUP.md` |
+| Script kiểm thử chạy trên bản thật | `scripts/acceptance_test.py`, `scripts/failure_drill.py`, `scripts/load_test.py`, `scripts/smoke_test.py`, `scripts/seed_remote.py` |
 
-Sửa mã thì sửa ở `main`, rồi gộp sang `vps` (`git switch vps; git merge main`). Không sửa trực tiếp mã ứng dụng trên nhánh `vps`. Nhánh `aws` không nhận thay đổi nữa. Nhánh `azure` sẽ được tạo khi có mã và Terraform cho Azure.
+Ứng dụng chọn nơi chạy bằng cấu hình (`STORAGE_BACKEND`, `QUEUE_BACKEND`, `AUTH_PROVIDER`): cùng một mã chạy trên Azure, trên máy phát triển (chế độ local) và trên VPS.
 
-## Mục tiêu triển khai hiện tại: Azure (từ 2026-11-21)
-
-Chủ dự án đã bỏ AWS và chọn Azure (đề bài cho chọn một trong AWS / Azure / GCP). Thiết kế: Container Apps (app `api`, job chuyển mã chạy theo sự kiện), Azure Database for PostgreSQL, Blob Storage riêng tư, Service Bus, Microsoft Entra External ID, Key Vault. Xem `docs/AZURE_ARCHITECTURE.md` (thiết kế, điều đã đối chiếu với tài liệu Azure, điều chưa đối chiếu, việc chưa quyết, chi phí sơ bộ) và `docs/PHASES.md` (phase 07–13). **Trạng thái: mã adapter Azure đã viết và qua test trên máy (Phase 07), nhưng chưa có lời gọi nào tới Azure: chưa kiểm tra tài khoản, chưa có Terraform, chưa có tài nguyên nào, image chưa build.** Mã adapter AWS đã được gỡ khỏi `main` (còn ở nhánh `aws`); tài liệu và Terraform của AWS là tài liệu lưu trữ. Chế độ local và bản VPS bên dưới vẫn chạy được và dùng để phát triển.
+**Bản dự phòng trên VPS Windows Server** vẫn chạy tại `https://video.uploadmdm.id.vn` và không liên quan tới Azure. Hai nhánh `vps` và `aws` đã được xoá khỏi GitHub ngày 2026-11-21 theo yêu cầu của chủ dự án; lịch sử của chúng nằm trong file bundle do chủ dự án giữ. AWS đã bỏ từ 2026-11-21; tài liệu và Terraform của AWS, GCP và VPS còn trong kho chỉ là tài liệu lưu trữ.
 
 ## Triển khai trên VPS Windows Server (đang chạy; tài liệu lưu trữ)
 

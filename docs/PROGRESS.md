@@ -881,3 +881,11 @@ Evidence: `docs/EVIDENCE.md` (section "second failure drill").
 - A copy of the drill clip is kept at `.local/drill-1080p.mp4` (gitignored); the FFmpeg command to recreate it is in the demo script.
 - Committed with `[skip ci]`: documentation and comments only.
 - **Still open:** demo Owner and Viewer accounts and sharing some reference clips with the Viewer (the owner creates accounts in the page); Cost Management figures to re-read on 2026-11-22; the instructor's agreement on local accounts instead of Entra External ID; a rehearsal of the demo script; a screenshot of the workbook; `api_min_replicas = 0` and `terraform destroy` after the presentation.
+
+### 2026-11-21 — Project close-out (part 1): branches removed from GitHub, Azure domain prepared
+The owner asked to close the project: keep Azure as the main edition, delete the `vps` and `aws` branches, write a hand-over report, export the source, and give the two sites different domain names (the VPS stays as the backup for the presentation).
+- Asked and answered: delete only the two branches, leave the content of `main` as it is; Azure gets `azure.uploadmdm.id.vn`, the VPS keeps `video.uploadmdm.id.vn`; the report is a Word file.
+- Before deleting: `git bundle` with `main`, `vps` (`f050a84`) and `aws` (`14f296f`), verified (`The bundle records a complete history`), kept in the gitignored `handover/` folder. Then `git push origin --delete vps aws`; `git ls-remote --heads origin` now lists only `main`. The local branches still exist in this working copy. The VPS services were not touched.
+- `README.md` (top section) and `AGENTS.md` no longer point at the deleted branches; the README now starts with the Azure edition.
+- Domain: `domain_name = "azure.uploadmdm.id.vn"` in the gitignored tfvars; `terraform plan`: `0 to add, 1 to change` (Blob Storage CORS origin `video…` -> `azure…`); `apply`: `1 changed`. The app has no custom hostname yet: `azure.uploadmdm.id.vn` does not exist in DNS. BLOCKED on the owner adding two DNS records (CNAME `azure` and TXT `asuid.azure`) at the DNS provider; then `az containerapp hostname add` and `hostname bind --validation-method CNAME`.
+- Documentation only in this commit (`[skip ci]`).
